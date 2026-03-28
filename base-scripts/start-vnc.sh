@@ -29,22 +29,6 @@ if [ ! -f ~/.Xauthority ]; then
   chmod 600 ~/.Xauthority
 fi
 
-# Ensure xstartup exists and is executable
-# If it doesn't exist, we'll create a simple one that starts a basic session
-if [ ! -f "$TIGERVNC_CONF_DIR/xstartup" ]; then
-  echo "Creating default xstartup in $TIGERVNC_CONF_DIR."
-  cat <<EOF > "$TIGERVNC_CONF_DIR/xstartup"
-#!/bin/sh
-[ -x /etc/vnc/xstartup ] && exec /etc/vnc/xstartup
-[ -r \$HOME/.Xresources ] && xrdb \$HOME/.Xresources
-xsetroot -solid grey
-vncconfig -iconic &
-x-terminal-emulator -geometry 80x24+10+10 -ls -title "\$VNCDESKTOP Desktop" &
-x-window-manager &
-EOF
-  chmod +x "$TIGERVNC_CONF_DIR/xstartup"
-fi
-
 # Function to handle graceful shutdown
 cleanup() {
   echo "Caught signal, stopping VNC server..."
