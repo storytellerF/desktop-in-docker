@@ -190,7 +190,7 @@ if [ "$PUBLISH" = true ] || [ "$EXECUTE_BUILD" = true ]; then
         # Note: For multi-arch buildx, this might be tricky if base isn't pushed.
         # But for local builds it's fine.
         echo "Building base image from base.Dockerfile..."
-        docker build -t desktop-base:latest -f base.Dockerfile .
+        docker build -t desktop-in-docker-base:latest -f base.Dockerfile .
     else
         DOCKERFILE="Dockerfile"
         echo "Building standard version using Dockerfile"
