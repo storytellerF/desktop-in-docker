@@ -142,7 +142,7 @@ if [ "$CREATE_ENV" = true ]; then
     DOCKER_USERNAME="${INPUT_DOCKER_USERNAME:-$DOCKER_USERNAME}"
 
     # Calculate IMAGE_TAG
-    IMAGE_TAG="${BASE_VERSION}-${DESKTOP_ENV}.${CURRENT_DATE}"
+    IMAGE_TAG="${BASE_VERSION}-${DESKTOP_ENV}-${CURRENT_DATE}"
 
     echo "Updating $ENV_FILE..."
     touch "$ENV_FILE"
@@ -158,9 +158,9 @@ else
     # Non-interactive Mode:
     # If a build is requested, calculate a fresh tag
     if [ "$EXECUTE_BUILD" = true ] || [ "$PUBLISH" = true ]; then
-        IMAGE_TAG="${BASE_VERSION}-${DESKTOP_ENV}.${CURRENT_DATE}"
+        IMAGE_TAG="${BASE_VERSION}-${DESKTOP_ENV}-${CURRENT_DATE}"
     elif [ -z "$IMAGE_TAG" ]; then
-        IMAGE_TAG="${BASE_VERSION}-${DESKTOP_ENV}.${CURRENT_DATE}"
+        IMAGE_TAG="${BASE_VERSION}-${DESKTOP_ENV}-${CURRENT_DATE}"
     fi
 
     # Update the .env if explicitly provided via args or if building
