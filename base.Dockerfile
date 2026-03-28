@@ -43,6 +43,7 @@ RUN chmod +x ./bin/*.sh
 RUN SNIPPET="export PROMPT_COMMAND='history -a' && export HISTFILE=/home/${USERNAME}/.desktop-in-docker/.bash_history" \
     && echo "$SNIPPET" >> ~/.bashrc
 
+# supervisor sock 是保存到run 目录中的
 RUN mkdir -p log/supervisor run
 
 # Copy supervisor configuration

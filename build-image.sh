@@ -16,7 +16,7 @@ usage() {
     echo "  -S, --start                  Start docker compose up --build after building the image"
     echo "  -P, --publish                Build and Push multi-arch images to Docker Hub (requires docker login)"
     echo "  -m, --multi-arch             Enable multi-arch mode (builds/pushes for amd64 and arm64)"
-    echo "  -d, --desktop <desktop>      Specify the desktop environment (xfce, lxqt) (default: xfce)"
+    echo "  -d, --desktop <desktop>      Specify the desktop environment (xfce, lxqt, kde) (default: xfce)"
     echo "  --latest                     Tag the image as 'latest'"
     echo "  --no-snapshot                Do not tag the image as 'snapshot' (snapshot is tagged by default)"
     echo "  -h, --help                   Display this help message"

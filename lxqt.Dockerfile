@@ -3,11 +3,14 @@ ARG BASE_IMAGE=desktop-in-docker-base:latest
 FROM ${BASE_IMAGE}
 
 USER root
+# Prevent installation of power-related packages via APT pinning
+RUN printf 'Package: upower\nPin: release *\nPin-Priority: -1\n\nPackage: power-profiles-daemon\nPin: release *\nPin-Priority: -1\n\nPackage: lxqt-powermanagement\nPin: release *\nPin-Priority: -1\n' > /etc/apt/preferences.d/no-power-management
+
 # Install LXQt-specific packages
 RUN apt-get update && \
     DEBIAN_FRONTEND=noninteractive \
-    apt-get install -y --no-install-recommends \
-    lxqt-core lxterminal openbox \
+    apt-get install -y \
+    lxqt \
     && rm -rf /var/lib/apt/lists/*
 
 USER debian
