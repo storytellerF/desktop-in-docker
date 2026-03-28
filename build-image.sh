@@ -200,6 +200,12 @@ if [ "$PUBLISH" = true ] || [ "$EXECUTE_BUILD" = true ]; then
     [ "$TAG_LATEST" = true ] && BUILD_TAGS+=("-t" "${IMAGE_NAME}:${BASE_VERSION}-${DESKTOP_ENV}-latest")
     [ "$TAG_SNAPSHOT" = true ] && BUILD_TAGS+=("-t" "${IMAGE_NAME}:${BASE_VERSION}-${DESKTOP_ENV}-snapshot")
 
+    # Only tag as global latest/snapshot if the desktop environment is xfce
+    if [ "$DESKTOP_ENV" = "xfce" ]; then
+        [ "$TAG_LATEST" = true ] && BUILD_TAGS+=("-t" "${IMAGE_NAME}:latest")
+        [ "$TAG_SNAPSHOT" = true ] && BUILD_TAGS+=("-t" "${IMAGE_NAME}:snapshot")
+    fi
+
     BUILD_TAGS_FLAVOR=()
     for tag_option in "${BUILD_TAGS[@]}"; do
         if [[ "$tag_option" == "-t" ]]; then
@@ -242,8 +248,10 @@ elif [ "$EXECUTE_BUILD" = true ]; then
 
     echo "Docker image build process finished."
     echo "Image created: ${IMAGE_NAME}:${IMAGE_TAG}"
-    [ "$TAG_LATEST" = true ] && echo "Also tagged as: ${IMAGE_NAME}:latest"
-    [ "$TAG_SNAPSHOT" = true ] && echo "Also tagged as: ${IMAGE_NAME}:snapshot"
+    if [ "$DESKTOP_ENV" = "xfce" ]; then
+        [ "$TAG_LATEST" = true ] && echo "Also tagged as: ${IMAGE_NAME}:latest"
+        [ "$TAG_SNAPSHOT" = true ] && echo "Also tagged as: ${IMAGE_NAME}:snapshot"
+    fi
     echo "Cleaning up dangling images..."
     docker image prune -f
 fi
