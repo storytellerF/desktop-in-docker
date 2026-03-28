@@ -200,6 +200,12 @@ if [ "$PUBLISH" = true ] || [ "$EXECUTE_BUILD" = true ]; then
     [ "$TAG_LATEST" = true ] && BUILD_TAGS+=("-t" "${IMAGE_NAME}:${BASE_VERSION}-${DESKTOP_ENV}-latest")
     [ "$TAG_SNAPSHOT" = true ] && BUILD_TAGS+=("-t" "${IMAGE_NAME}:${BASE_VERSION}-${DESKTOP_ENV}-snapshot")
 
+    if [ "$BASE_VERSION" = "trixie" ]; then
+        BUILD_TAGS+=("-t" "${IMAGE_NAME}:${DESKTOP_ENV}-${CURRENT_DATE}")
+        [ "$TAG_LATEST" = true ] && BUILD_TAGS+=("-t" "${IMAGE_NAME}:${DESKTOP_ENV}-latest")
+        [ "$TAG_SNAPSHOT" = true ] && BUILD_TAGS+=("-t" "${IMAGE_NAME}:${DESKTOP_ENV}-snapshot")
+    fi
+
     # Only tag as global latest/snapshot if the desktop environment is xfce
     if [ "$DESKTOP_ENV" = "xfce" ]; then
         [ "$TAG_LATEST" = true ] && BUILD_TAGS+=("-t" "${IMAGE_NAME}:latest")
@@ -235,6 +241,15 @@ if [ "$PUBLISH" = true ]; then
 
     echo "Multi-arch build and push finished."
     echo "Image pushed: ${IMAGE_NAME}:${IMAGE_TAG}"
+    if [ "$BASE_VERSION" = "trixie" ]; then
+        echo "Also pushed tag: ${IMAGE_NAME}:${DESKTOP_ENV}-${CURRENT_DATE}"
+        [ "$TAG_LATEST" = true ] && echo "Also pushed tag: ${IMAGE_NAME}:${DESKTOP_ENV}-latest"
+        [ "$TAG_SNAPSHOT" = true ] && echo "Also pushed tag: ${IMAGE_NAME}:${DESKTOP_ENV}-snapshot"
+    fi
+    if [ "$DESKTOP_ENV" = "xfce" ]; then
+        [ "$TAG_LATEST" = true ] && echo "Also pushed tag: ${IMAGE_NAME}:latest"
+        [ "$TAG_SNAPSHOT" = true ] && echo "Also pushed tag: ${IMAGE_NAME}:snapshot"
+    fi
     echo "Cleaning up dangling images..."
     docker image prune -f
 
@@ -248,6 +263,11 @@ elif [ "$EXECUTE_BUILD" = true ]; then
 
     echo "Docker image build process finished."
     echo "Image created: ${IMAGE_NAME}:${IMAGE_TAG}"
+    if [ "$BASE_VERSION" = "trixie" ]; then
+        echo "Also tagged as: ${IMAGE_NAME}:${DESKTOP_ENV}-${CURRENT_DATE}"
+        [ "$TAG_LATEST" = true ] && echo "Also tagged as: ${IMAGE_NAME}:${DESKTOP_ENV}-latest"
+        [ "$TAG_SNAPSHOT" = true ] && echo "Also tagged as: ${IMAGE_NAME}:${DESKTOP_ENV}-snapshot"
+    fi
     if [ "$DESKTOP_ENV" = "xfce" ]; then
         [ "$TAG_LATEST" = true ] && echo "Also tagged as: ${IMAGE_NAME}:latest"
         [ "$TAG_SNAPSHOT" = true ] && echo "Also tagged as: ${IMAGE_NAME}:snapshot"
