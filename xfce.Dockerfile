@@ -4,7 +4,11 @@ FROM ${BASE_IMAGE}
 
 USER root
 # Prevent installation of power-related packages via APT pinning
-RUN printf 'Package: upower\nPin: release *\nPin-Priority: -1\n\nPackage: power-profiles-daemon\nPin: release *\nPin-Priority: -1\n\nPackage: xfce4-power-manager\nPin: release *\nPin-Priority: -1\n' > /etc/apt/preferences.d/no-power-management
+RUN printf 'Package: %s\nPin: release *\nPin-Priority: -1\n\n' \
+    upower \
+    power-profiles-daemon \
+    xfce4-power-manager \
+    > /etc/apt/preferences.d/no-power-management
 
 # Install XFCE-specific packages
 RUN apt-get update && \
