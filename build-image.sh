@@ -127,6 +127,20 @@ fi
 VNC_PASSWD="${VNC_PASSWD:-$DEFAULT_VNC_PASSWORD}"
 DESKTOP_ENV="${DESKTOP_ENV:-xfce}"
 
+# Define tag variations (Full and Minimized)
+TAG_BASE_FULL="${BASE_VERSION}-${DESKTOP_ENV}"
+TAG_BASE_MIN=""
+if [ "$BASE_VERSION" != "trixie" ]; then
+    TAG_BASE_MIN="${BASE_VERSION}"
+fi
+if [ "$DESKTOP_ENV" != "xfce" ]; then
+    if [ -n "$TAG_BASE_MIN" ]; then
+        TAG_BASE_MIN="${TAG_BASE_MIN}-${DESKTOP_ENV}"
+    else
+        TAG_BASE_MIN="${DESKTOP_ENV}"
+    fi
+fi
+
 # If creating env, handle interactive mode
 if [ "$CREATE_ENV" = true ]; then
     read -p "Enter VNC password (default: $VNC_PASSWD, enter 'r' for random): " INPUT_PASSWORD
@@ -141,22 +155,9 @@ if [ "$CREATE_ENV" = true ]; then
     read -p "Enter Docker Hub Username (default: $DOCKER_USERNAME, optional, required for publish): " INPUT_DOCKER_USERNAME
     DOCKER_USERNAME="${INPUT_DOCKER_USERNAME:-$DOCKER_USERNAME}"
 
-    # Calculate Tag Base
-    TAG_BASE=""
-    if [ "$BASE_VERSION" != "trixie" ]; then
-        TAG_BASE="${BASE_VERSION}"
-    fi
-    if [ "$DESKTOP_ENV" != "xfce" ]; then
-        if [ -n "$TAG_BASE" ]; then
-            TAG_BASE="${TAG_BASE}-${DESKTOP_ENV}"
-        else
-            TAG_BASE="${DESKTOP_ENV}"
-        fi
-    fi
-
-    # Determine IMAGE_TAG
-    if [ -n "$TAG_BASE" ]; then
-        IMAGE_TAG="${TAG_BASE}-${CURRENT_DATE}"
+    # Determine IMAGE_TAG (use minimized as standard for .env)
+    if [ -n "$TAG_BASE_MIN" ]; then
+        IMAGE_TAG="${TAG_BASE_MIN}-${CURRENT_DATE}"
     else
         IMAGE_TAG="${CURRENT_DATE}"
     fi
@@ -172,30 +173,10 @@ if [ "$CREATE_ENV" = true ]; then
     
     echo ".env file updated."
 else
-    # Non-interactive Mode:
-    # Calculate Tag Base if not already done
-    TAG_BASE=""
-    if [ "$BASE_VERSION" != "trixie" ]; then
-        TAG_BASE="${BASE_VERSION}"
-    fi
-    if [ "$DESKTOP_ENV" != "xfce" ]; then
-        if [ -n "$TAG_BASE" ]; then
-            TAG_BASE="${TAG_BASE}-${DESKTOP_ENV}"
-        else
-            TAG_BASE="${DESKTOP_ENV}"
-        fi
-    fi
-
-    # If a build is requested, calculate a fresh tag
-    if [ "$EXECUTE_BUILD" = true ] || [ "$PUBLISH" = true ]; then
-        if [ -n "$TAG_BASE" ]; then
-            IMAGE_TAG="${TAG_BASE}-${CURRENT_DATE}"
-        else
-            IMAGE_TAG="${CURRENT_DATE}"
-        fi
-    elif [ -z "$IMAGE_TAG" ]; then
-        if [ -n "$TAG_BASE" ]; then
-            IMAGE_TAG="${TAG_BASE}-${CURRENT_DATE}"
+    # If a build is requested or tag is empty, calculate primary tag
+    if [ "$EXECUTE_BUILD" = true ] || [ "$PUBLISH" = true ] || [ -z "$IMAGE_TAG" ]; then
+        if [ -n "$TAG_BASE_MIN" ]; then
+            IMAGE_TAG="${TAG_BASE_MIN}-${CURRENT_DATE}"
         else
             IMAGE_TAG="${CURRENT_DATE}"
         fi
@@ -234,14 +215,24 @@ if [ "$PUBLISH" = true ] || [ "$EXECUTE_BUILD" = true ]; then
         echo "Building standard version using Dockerfile"
     fi
 
-    BUILD_TAGS=("-t" "${IMAGE_NAME}:${IMAGE_TAG}")
-    if [ -n "$TAG_BASE" ]; then
-        [ "$TAG_LATEST" = true ] && BUILD_TAGS+=("-t" "${IMAGE_NAME}:${TAG_BASE}-latest")
-        [ "$TAG_SNAPSHOT" = true ] && BUILD_TAGS+=("-t" "${IMAGE_NAME}:${TAG_BASE}-snapshot")
-    else
-        [ "$TAG_LATEST" = true ] && BUILD_TAGS+=("-t" "${IMAGE_NAME}:latest")
-        [ "$TAG_SNAPSHOT" = true ] && BUILD_TAGS+=("-t" "${IMAGE_NAME}:snapshot")
+    # Generate all tag variants
+    TAG_BASES=("$TAG_BASE_FULL")
+    if [ "$TAG_BASE_MIN" != "$TAG_BASE_FULL" ]; then
+        TAG_BASES+=("$TAG_BASE_MIN")
     fi
+
+    BUILD_TAGS=()
+    for tb in "${TAG_BASES[@]}"; do
+        if [ -n "$tb" ]; then
+            BUILD_TAGS+=("-t" "${IMAGE_NAME}:${tb}-${CURRENT_DATE}")
+            [ "$TAG_LATEST" = true ] && BUILD_TAGS+=("-t" "${IMAGE_NAME}:${tb}-latest")
+            [ "$TAG_SNAPSHOT" = true ] && BUILD_TAGS+=("-t" "${IMAGE_NAME}:${tb}-snapshot")
+        else
+            BUILD_TAGS+=("-t" "${IMAGE_NAME}:${CURRENT_DATE}")
+            [ "$TAG_LATEST" = true ] && BUILD_TAGS+=("-t" "${IMAGE_NAME}:latest")
+            [ "$TAG_SNAPSHOT" = true ] && BUILD_TAGS+=("-t" "${IMAGE_NAME}:snapshot")
+        fi
+    done
 
     BUILD_TAGS_FLAVOR=()
     for tag_option in "${BUILD_TAGS[@]}"; do
@@ -271,14 +262,12 @@ if [ "$PUBLISH" = true ]; then
         -f "$DOCKERFILE" .
 
     echo "Multi-arch build and push finished."
-    echo "Image pushed: ${IMAGE_NAME}:${IMAGE_TAG}"
-    if [ -n "$TAG_BASE" ]; then
-        [ "$TAG_LATEST" = true ] && echo "Also pushed tag: ${IMAGE_NAME}:${TAG_BASE}-latest"
-        [ "$TAG_SNAPSHOT" = true ] && echo "Also pushed tag: ${IMAGE_NAME}:${TAG_BASE}-snapshot"
-    else
-        [ "$TAG_LATEST" = true ] && echo "Also pushed tag: ${IMAGE_NAME}:latest"
-        [ "$TAG_SNAPSHOT" = true ] && echo "Also pushed tag: ${IMAGE_NAME}:snapshot"
-    fi
+    echo "Image pushed variants:"
+    for tag_option in "${BUILD_TAGS_FLAVOR[@]}"; do
+        if [ "$tag_option" != "-t" ]; then
+            echo "  - $tag_option"
+        fi
+    done
     echo "Cleaning up dangling images..."
     docker image prune -f
 
@@ -291,14 +280,12 @@ elif [ "$EXECUTE_BUILD" = true ]; then
         -f "$DOCKERFILE" .
 
     echo "Docker image build process finished."
-    echo "Image created: ${IMAGE_NAME}:${IMAGE_TAG}"
-    if [ -n "$TAG_BASE" ]; then
-        [ "$TAG_LATEST" = true ] && echo "Also tagged as: ${IMAGE_NAME}:${TAG_BASE}-latest"
-        [ "$TAG_SNAPSHOT" = true ] && echo "Also tagged as: ${IMAGE_NAME}:${TAG_BASE}-snapshot"
-    else
-        [ "$TAG_LATEST" = true ] && echo "Also tagged as: ${IMAGE_NAME}:latest"
-        [ "$TAG_SNAPSHOT" = true ] && echo "Also tagged as: ${IMAGE_NAME}:snapshot"
-    fi
+    echo "Image created variants:"
+    for tag_option in "${BUILD_TAGS_FLAVOR[@]}"; do
+        if [ "$tag_option" != "-t" ]; then
+            echo "  - $tag_option"
+        fi
+    done
     echo "Cleaning up dangling images..."
     docker image prune -f
 fi
