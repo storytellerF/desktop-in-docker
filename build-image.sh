@@ -141,8 +141,25 @@ if [ "$CREATE_ENV" = true ]; then
     read -p "Enter Docker Hub Username (default: $DOCKER_USERNAME, optional, required for publish): " INPUT_DOCKER_USERNAME
     DOCKER_USERNAME="${INPUT_DOCKER_USERNAME:-$DOCKER_USERNAME}"
 
-    # Calculate IMAGE_TAG
-    IMAGE_TAG="${BASE_VERSION}-${DESKTOP_ENV}-${CURRENT_DATE}"
+    # Calculate Tag Base
+    TAG_BASE=""
+    if [ "$BASE_VERSION" != "trixie" ]; then
+        TAG_BASE="${BASE_VERSION}"
+    fi
+    if [ "$DESKTOP_ENV" != "xfce" ]; then
+        if [ -n "$TAG_BASE" ]; then
+            TAG_BASE="${TAG_BASE}-${DESKTOP_ENV}"
+        else
+            TAG_BASE="${DESKTOP_ENV}"
+        fi
+    fi
+
+    # Determine IMAGE_TAG
+    if [ -n "$TAG_BASE" ]; then
+        IMAGE_TAG="${TAG_BASE}-${CURRENT_DATE}"
+    else
+        IMAGE_TAG="${CURRENT_DATE}"
+    fi
 
     echo "Updating $ENV_FILE..."
     touch "$ENV_FILE"
@@ -156,11 +173,32 @@ if [ "$CREATE_ENV" = true ]; then
     echo ".env file updated."
 else
     # Non-interactive Mode:
+    # Calculate Tag Base if not already done
+    TAG_BASE=""
+    if [ "$BASE_VERSION" != "trixie" ]; then
+        TAG_BASE="${BASE_VERSION}"
+    fi
+    if [ "$DESKTOP_ENV" != "xfce" ]; then
+        if [ -n "$TAG_BASE" ]; then
+            TAG_BASE="${TAG_BASE}-${DESKTOP_ENV}"
+        else
+            TAG_BASE="${DESKTOP_ENV}"
+        fi
+    fi
+
     # If a build is requested, calculate a fresh tag
     if [ "$EXECUTE_BUILD" = true ] || [ "$PUBLISH" = true ]; then
-        IMAGE_TAG="${BASE_VERSION}-${DESKTOP_ENV}-${CURRENT_DATE}"
+        if [ -n "$TAG_BASE" ]; then
+            IMAGE_TAG="${TAG_BASE}-${CURRENT_DATE}"
+        else
+            IMAGE_TAG="${CURRENT_DATE}"
+        fi
     elif [ -z "$IMAGE_TAG" ]; then
-        IMAGE_TAG="${BASE_VERSION}-${DESKTOP_ENV}-${CURRENT_DATE}"
+        if [ -n "$TAG_BASE" ]; then
+            IMAGE_TAG="${TAG_BASE}-${CURRENT_DATE}"
+        else
+            IMAGE_TAG="${CURRENT_DATE}"
+        fi
     fi
 
     # Update the .env if explicitly provided via args or if building
@@ -197,17 +235,10 @@ if [ "$PUBLISH" = true ] || [ "$EXECUTE_BUILD" = true ]; then
     fi
 
     BUILD_TAGS=("-t" "${IMAGE_NAME}:${IMAGE_TAG}")
-    [ "$TAG_LATEST" = true ] && BUILD_TAGS+=("-t" "${IMAGE_NAME}:${BASE_VERSION}-${DESKTOP_ENV}-latest")
-    [ "$TAG_SNAPSHOT" = true ] && BUILD_TAGS+=("-t" "${IMAGE_NAME}:${BASE_VERSION}-${DESKTOP_ENV}-snapshot")
-
-    if [ "$BASE_VERSION" = "trixie" ]; then
-        BUILD_TAGS+=("-t" "${IMAGE_NAME}:${DESKTOP_ENV}-${CURRENT_DATE}")
-        [ "$TAG_LATEST" = true ] && BUILD_TAGS+=("-t" "${IMAGE_NAME}:${DESKTOP_ENV}-latest")
-        [ "$TAG_SNAPSHOT" = true ] && BUILD_TAGS+=("-t" "${IMAGE_NAME}:${DESKTOP_ENV}-snapshot")
-    fi
-
-    # Only tag as global latest/snapshot if the desktop environment is xfce
-    if [ "$DESKTOP_ENV" = "xfce" ]; then
+    if [ -n "$TAG_BASE" ]; then
+        [ "$TAG_LATEST" = true ] && BUILD_TAGS+=("-t" "${IMAGE_NAME}:${TAG_BASE}-latest")
+        [ "$TAG_SNAPSHOT" = true ] && BUILD_TAGS+=("-t" "${IMAGE_NAME}:${TAG_BASE}-snapshot")
+    else
         [ "$TAG_LATEST" = true ] && BUILD_TAGS+=("-t" "${IMAGE_NAME}:latest")
         [ "$TAG_SNAPSHOT" = true ] && BUILD_TAGS+=("-t" "${IMAGE_NAME}:snapshot")
     fi
@@ -241,12 +272,10 @@ if [ "$PUBLISH" = true ]; then
 
     echo "Multi-arch build and push finished."
     echo "Image pushed: ${IMAGE_NAME}:${IMAGE_TAG}"
-    if [ "$BASE_VERSION" = "trixie" ]; then
-        echo "Also pushed tag: ${IMAGE_NAME}:${DESKTOP_ENV}-${CURRENT_DATE}"
-        [ "$TAG_LATEST" = true ] && echo "Also pushed tag: ${IMAGE_NAME}:${DESKTOP_ENV}-latest"
-        [ "$TAG_SNAPSHOT" = true ] && echo "Also pushed tag: ${IMAGE_NAME}:${DESKTOP_ENV}-snapshot"
-    fi
-    if [ "$DESKTOP_ENV" = "xfce" ]; then
+    if [ -n "$TAG_BASE" ]; then
+        [ "$TAG_LATEST" = true ] && echo "Also pushed tag: ${IMAGE_NAME}:${TAG_BASE}-latest"
+        [ "$TAG_SNAPSHOT" = true ] && echo "Also pushed tag: ${IMAGE_NAME}:${TAG_BASE}-snapshot"
+    else
         [ "$TAG_LATEST" = true ] && echo "Also pushed tag: ${IMAGE_NAME}:latest"
         [ "$TAG_SNAPSHOT" = true ] && echo "Also pushed tag: ${IMAGE_NAME}:snapshot"
     fi
@@ -263,12 +292,10 @@ elif [ "$EXECUTE_BUILD" = true ]; then
 
     echo "Docker image build process finished."
     echo "Image created: ${IMAGE_NAME}:${IMAGE_TAG}"
-    if [ "$BASE_VERSION" = "trixie" ]; then
-        echo "Also tagged as: ${IMAGE_NAME}:${DESKTOP_ENV}-${CURRENT_DATE}"
-        [ "$TAG_LATEST" = true ] && echo "Also tagged as: ${IMAGE_NAME}:${DESKTOP_ENV}-latest"
-        [ "$TAG_SNAPSHOT" = true ] && echo "Also tagged as: ${IMAGE_NAME}:${DESKTOP_ENV}-snapshot"
-    fi
-    if [ "$DESKTOP_ENV" = "xfce" ]; then
+    if [ -n "$TAG_BASE" ]; then
+        [ "$TAG_LATEST" = true ] && echo "Also tagged as: ${IMAGE_NAME}:${TAG_BASE}-latest"
+        [ "$TAG_SNAPSHOT" = true ] && echo "Also tagged as: ${IMAGE_NAME}:${TAG_BASE}-snapshot"
+    else
         [ "$TAG_LATEST" = true ] && echo "Also tagged as: ${IMAGE_NAME}:latest"
         [ "$TAG_SNAPSHOT" = true ] && echo "Also tagged as: ${IMAGE_NAME}:snapshot"
     fi
