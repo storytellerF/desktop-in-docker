@@ -1,0 +1,22 @@
+services:
+  desktop:
+    image: storytellerf/desktop-in-docker:snapshot
+    ports:
+      - "6080" # noVNC web interface
+      - "5901" # VNC direct connection
+    environment:
+      - VNC_GEOMETRY=2160x1440
+      - VNC_DEPTH=24
+    env_file:
+      - .env
+    volumes:
+      - ./logs:${CONTAINER_HOME:-/home/debian}/log/supervisor
+      - bash_history:${CONTAINER_HOME:-/home/debian}/.android-in-docker/.bash_history
+    shm_size: '2gb' # Allocate more shared memory
+    restart: "unless-stopped"
+
+volumes:
+  avd_data:
+  sdk_data:
+    external: true
+  bash_history:
