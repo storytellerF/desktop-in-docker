@@ -1,6 +1,6 @@
 services:
   desktop:
-    image: ${DOCKER_USERNAME:-storytellerf}/desktop-in-docker:${DESKTOP_ENV:-xfce}-snapshot
+    image: ${DOCKER_USERNAME:-storytellerf}/desktop-in-docker:${BASE_VERSION:-trixie}-${DESKTOP_ENV:-xfce}-snapshot
     ports:
       - "6080" # noVNC web interface
       - "5901" # VNC direct connection

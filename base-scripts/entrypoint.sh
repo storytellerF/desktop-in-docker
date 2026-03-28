@@ -2,10 +2,10 @@
 
 echo "Current user: $(whoami)"
 
-TOTAL=$(find /home/$(whoami) -print0 | tr -cd '\0' | wc -c)
-echo "$TOTAL files"
+TOTAL=$(find /home/$(whoami) \( ! -user $(whoami) -o ! -group $(whoami) \) -print0 | tr -cd '\0' | wc -c)
+echo "$TOTAL files need ownership fixing"
 
-find /home/$(whoami) -print0 \
+find /home/$(whoami) \( ! -user $(whoami) -o ! -group $(whoami) \) -print0 \
 | tr '\0' '\n' \
 | pv -l -s "$TOTAL" \
 | while IFS= read -r file; do

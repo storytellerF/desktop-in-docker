@@ -142,7 +142,7 @@ if [ "$CREATE_ENV" = true ]; then
     DOCKER_USERNAME="${INPUT_DOCKER_USERNAME:-$DOCKER_USERNAME}"
 
     # Calculate IMAGE_TAG
-    IMAGE_TAG="${DESKTOP_ENV}-${BASE_VERSION}.${CURRENT_DATE}"
+    IMAGE_TAG="${BASE_VERSION}-${DESKTOP_ENV}.${CURRENT_DATE}"
 
     echo "Updating $ENV_FILE..."
     touch "$ENV_FILE"
@@ -150,6 +150,7 @@ if [ "$CREATE_ENV" = true ]; then
     update_env_var "VNC_PASSWD" "$VNC_PASSWD" "$ENV_FILE"
     update_env_var "IMAGE_TAG" "$IMAGE_TAG" "$ENV_FILE"
     update_env_var "CONTAINER_HOME" "$CONTAINER_HOME" "$ENV_FILE"
+    update_env_var "BASE_VERSION" "$BASE_VERSION" "$ENV_FILE"
     update_env_var "DESKTOP_ENV" "$DESKTOP_ENV" "$ENV_FILE"
     
     echo ".env file updated."
@@ -157,14 +158,15 @@ else
     # Non-interactive Mode:
     # If a build is requested, calculate a fresh tag
     if [ "$EXECUTE_BUILD" = true ] || [ "$PUBLISH" = true ]; then
-        IMAGE_TAG="${DESKTOP_ENV}-${BASE_VERSION}.${CURRENT_DATE}"
+        IMAGE_TAG="${BASE_VERSION}-${DESKTOP_ENV}.${CURRENT_DATE}"
     elif [ -z "$IMAGE_TAG" ]; then
-        IMAGE_TAG="${DESKTOP_ENV}-${BASE_VERSION}.${CURRENT_DATE}"
+        IMAGE_TAG="${BASE_VERSION}-${DESKTOP_ENV}.${CURRENT_DATE}"
     fi
 
     # Update the .env if explicitly provided via args or if building
     if [ "$EXECUTE_BUILD" = true ] || [ "$START_CONTAINER" = true ]; then
         update_env_var "DESKTOP_ENV" "$DESKTOP_ENV" "$ENV_FILE"
+        update_env_var "BASE_VERSION" "$BASE_VERSION" "$ENV_FILE"
         update_env_var "IMAGE_TAG" "$IMAGE_TAG" "$ENV_FILE"
         update_env_var "DOCKER_USERNAME" "$DOCKER_USERNAME" "$ENV_FILE"
         update_env_var "VNC_PASSWD" "$VNC_PASSWD" "$ENV_FILE"
@@ -195,8 +197,8 @@ if [ "$PUBLISH" = true ] || [ "$EXECUTE_BUILD" = true ]; then
     fi
 
     BUILD_TAGS=("-t" "${IMAGE_NAME}:${IMAGE_TAG}")
-    [ "$TAG_LATEST" = true ] && BUILD_TAGS+=("-t" "${IMAGE_NAME}:${DESKTOP_ENV}-latest")
-    [ "$TAG_SNAPSHOT" = true ] && BUILD_TAGS+=("-t" "${IMAGE_NAME}:${DESKTOP_ENV}-snapshot")
+    [ "$TAG_LATEST" = true ] && BUILD_TAGS+=("-t" "${IMAGE_NAME}:${BASE_VERSION}-${DESKTOP_ENV}-latest")
+    [ "$TAG_SNAPSHOT" = true ] && BUILD_TAGS+=("-t" "${IMAGE_NAME}:${BASE_VERSION}-${DESKTOP_ENV}-snapshot")
 
     BUILD_TAGS_FLAVOR=()
     for tag_option in "${BUILD_TAGS[@]}"; do
