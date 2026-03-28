@@ -34,10 +34,14 @@ if [ -f .env ]; then
 fi
 
 
-# 使用vncpasswd 保存密码到./tmp/passwd
-vncpasswd -f > ./tmp/passwd <<EOF
-password
-EOF
+# 使用 vncpasswd 保存密码到 ./tmp/passwd，供 vncviewer 使用
+# 如果 PWD_HINT 为空，使用默认密码 "password"
+ACTUAL_PWD="${PWD_HINT:-password}"
+
+mkdir -p ./tmp
+echo "$ACTUAL_PWD" | vncpasswd -f > ./tmp/passwd
 
 echo "正在尝试连接 vncviewer localhost:$VNC_PORT ..."
+# 不同的 vncviewer 参数可能略有不同，但 -passwd 是常见的
 vncviewer "localhost:$VNC_PORT" -passwd="./tmp/passwd"
+

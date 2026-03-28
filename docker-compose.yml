@@ -1,6 +1,6 @@
 services:
   desktop:
-    image: storytellerf/desktop-in-docker:snapshot
+    image: ${DOCKER_USERNAME:-storytellerf}/desktop-in-docker:${DESKTOP_ENV:-xfce}-snapshot
     ports:
       - "6080" # noVNC web interface
       - "5901" # VNC direct connection
@@ -11,7 +11,7 @@ services:
       - .env
     volumes:
       - ./logs:${CONTAINER_HOME:-/home/debian}/log/supervisor
-      - bash_history:${CONTAINER_HOME:-/home/debian}/.android-in-docker/.bash_history
+      - bash_history:${CONTAINER_HOME:-/home/debian}/.desktop-in-docker/.bash_history
     shm_size: '2gb' # Allocate more shared memory
     restart: "unless-stopped"
 

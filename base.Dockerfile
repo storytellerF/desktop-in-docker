@@ -3,14 +3,15 @@ FROM debian:trixie
 
 ARG OPENJDK_VERSION
 
-# Install Dependencies: VNC, Desktop, Supervisor, Java, KVM, and other tools
+# Install Dependencies: VNC, Supervisor, noVNC, and other tools
 RUN apt-get update && \
     DEBIAN_FRONTEND=noninteractive \
     apt-get install -y --no-install-recommends --no-install-suggests \
     dbus-x11 \
     supervisor \
-    tightvncserver xfonts-base\
-    xfce4 xfce4-terminal \
+    tigervnc-standalone-server tigervnc-common tigervnc-tools \
+    x11-xserver-utils \
+    xfonts-base \
     novnc \
     wget \
     unzip \
@@ -39,14 +40,7 @@ WORKDIR /home/$USERNAME
 COPY --chown=${USER_UID}:${USER_GID} base-scripts ./bin
 RUN chmod +x ./bin/*.sh
 
-# Setup the startup script for the VNC server to launch the XFCE desktop
-RUN mkdir -p .vnc && \
-    echo "#!/bin/bash" > .vnc/xstartup && \
-    echo "xrdb \$HOME/.Xresources" >> .vnc/xstartup && \
-    echo "startxfce4 &" >> .vnc/xstartup && \
-    chmod +x .vnc/xstartup
-
-RUN SNIPPET="export PROMPT_COMMAND='history -a' && export HISTFILE=/home/${USERNAME}/.android-in-docker/.bash_history" \
+RUN SNIPPET="export PROMPT_COMMAND='history -a' && export HISTFILE=/home/${USERNAME}/.desktop-in-docker/.bash_history" \
     && echo "$SNIPPET" >> ~/.bashrc
 
 RUN mkdir -p log/supervisor run
