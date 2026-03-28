@@ -221,9 +221,23 @@ if [ "$START_CONTAINER" = true ]; then
     echo "Starting docker compose..."
     if docker compose $COMPOSE_FILES up -d --build; then
         echo "Docker compose started successfully."
+        # 获取映射后的外部端口
+        WEB_PORT=$(docker compose port desktop 6080 2>/dev/null | cut -d':' -f2)
+        VNC_PORT=$(docker compose port desktop 5901 2>/dev/null | cut -d':' -f2)
+        
         echo "You can access the desktop via:"
-        echo "  - Web VNC: http://localhost:6080/vnc.html"
-        echo "  - VNC direct: localhost:5901"
+        if [ -n "$WEB_PORT" ]; then
+            echo "  - Web VNC: http://localhost:${WEB_PORT}/vnc.html"
+        else
+            echo "  - Web VNC mapping not found (port 6080)"
+        fi
+        
+        if [ -n "$VNC_PORT" ]; then
+            echo "  - VNC direct: localhost:${VNC_PORT}"
+            echo "  - You can also run: ./vnc.sh to connect using vncviewer"
+        else
+            echo "  - VNC direct mapping not found (port 5901)"
+        fi
     else
         echo "Failed to start docker compose."
     fi

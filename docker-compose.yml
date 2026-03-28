@@ -5,7 +5,7 @@ services:
       - "6080" # noVNC web interface
       - "5901" # VNC direct connection
     environment:
-      - VNC_GEOMETRY=2160x1440
+      - VNC_GEOMETRY=1920x1080
       - VNC_DEPTH=24
     env_file:
       - .env
