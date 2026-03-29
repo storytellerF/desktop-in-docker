@@ -3,12 +3,20 @@ ARG BASE_IMAGE=desktop-in-docker-base:latest
 FROM ${BASE_IMAGE}
 
 USER root
-# Prevent installation of power-related packages via APT pinning
+# Prevent installation of power-management and screen-lock packages via APT pinning
 RUN printf 'Package: %s\nPin: release *\nPin-Priority: -1\n\n' \
     upower \
     power-profiles-daemon \
     powerdevil \
-    > /etc/apt/preferences.d/no-power-management
+    kscreenlocker-common \
+    xscreensaver \
+    xscreensaver-data \
+    gnome-screensaver \
+    mate-screensaver \
+    cinnamon-screensaver \
+    light-locker \
+    xfce4-screensaver \
+    > /etc/apt/preferences.d/no-desktop-extras
 
 # Install KDE-specific packages
 # kde-plasma-desktop is a minimal KDE installation

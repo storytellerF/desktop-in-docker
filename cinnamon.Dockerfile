@@ -3,12 +3,20 @@ ARG BASE_IMAGE=desktop-in-docker-base:latest
 FROM ${BASE_IMAGE}
 
 USER root
-# Prevent installation of power-related packages via APT pinning
+# Prevent installation of power-management and screen-lock packages via APT pinning
 RUN printf 'Package: %s\nPin: release *\nPin-Priority: -1\n\n' \
     upower \
     power-profiles-daemon \
     cinnamon-settings-daemon \
-    > /etc/apt/preferences.d/no-power-management
+    cinnamon-screensaver \
+    xscreensaver \
+    xscreensaver-data \
+    gnome-screensaver \
+    mate-screensaver \
+    kscreenlocker-common \
+    light-locker \
+    xfce4-screensaver \
+    > /etc/apt/preferences.d/no-desktop-extras
 
 # Install Cinnamon-specific packages
 RUN apt-get update && \

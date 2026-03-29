@@ -3,12 +3,20 @@ ARG BASE_IMAGE=desktop-in-docker-base:latest
 FROM ${BASE_IMAGE}
 
 USER root
-# Prevent installation of power-related packages via APT pinning
+# Prevent installation of power-management and screen-lock packages via APT pinning
 RUN printf 'Package: %s\nPin: release *\nPin-Priority: -1\n\n' \
     upower \
     power-profiles-daemon \
     mate-power-manager \
-    > /etc/apt/preferences.d/no-power-management
+    mate-screensaver \
+    xscreensaver \
+    xscreensaver-data \
+    gnome-screensaver \
+    cinnamon-screensaver \
+    kscreenlocker-common \
+    light-locker \
+    xfce4-screensaver \
+    > /etc/apt/preferences.d/no-desktop-extras
 
 # Install MATE-specific packages
 RUN apt-get update && \
