@@ -10,6 +10,8 @@ DEFAULT_VNC_PASSWORD="password"
 usage() {
     echo "Usage: $0 [OPTIONS]"
     echo "Options:"
+    echo "  -s, --system <system>        Specify the Linux distribution (debian, ubuntu, fedora, arch, alpine) (default: debian)"
+    echo "  -v, --version <version>      Specify the distribution version (e.g., bookworm, trixie, focal, jammy, noble)"
     echo "  -p, --password <password>    Specify the VNC password (default: $DEFAULT_VNC_PASSWORD)"
     echo "  -c, --create-env             Create or overwrite the .env file with the specified or default values"
     echo "  -b, --build                  Execute the docker build process"
@@ -47,11 +49,21 @@ MULTI_ARCH=false
 CMD_DOCKER_USERNAME=""
 CMD_VNC_PASSWORD=""
 CMD_DESKTOP_ENV=""
+CMD_SYSTEM=""
+CMD_SYSTEM_VERSION=""
 TAG_LATEST=false
 TAG_SNAPSHOT=true
 
 while [[ "$#" -gt 0 ]]; do
     case $1 in
+        -s|--system)
+            CMD_SYSTEM="$2"
+            shift
+            ;;
+        -v|--version)
+            CMD_SYSTEM_VERSION="$2"
+            shift
+            ;;
         -p|--password)
             CMD_VNC_PASSWORD="$2"
             shift
@@ -92,23 +104,6 @@ while [[ "$#" -gt 0 ]]; do
     shift
 done
 
-# Get base image version from Dockerfile (supports ubuntu: or debian:)
-if [ -f "base.Dockerfile" ]; then
-    BASE_VERSION=$(grep "^FROM " base.Dockerfile | cut -d':' -f2 | tr -d '\r' | tr -d ' ')
-    # Extract USERNAME from Dockerfile (ARG USERNAME=...)
-    DF_USERNAME=$(grep "^ARG USERNAME=" base.Dockerfile | cut -d'=' -f2 | tr -d '\r' | tr -d ' ')
-    CONTAINER_USER="${DF_USERNAME:-debian}"
-elif [ -f "Dockerfile" ]; then
-    BASE_VERSION=$(grep "^FROM " Dockerfile | cut -d':' -f2 | tr -d '\r' | tr -d ' ')
-    # Extract USERNAME from Dockerfile (ARG USERNAME=...)
-    DF_USERNAME=$(grep "^ARG USERNAME=" Dockerfile | cut -d'=' -f2 | tr -d '\r' | tr -d ' ')
-    CONTAINER_USER="${DF_USERNAME:-debian}"
-else
-    BASE_VERSION="unknown"
-    CONTAINER_USER="debian"
-fi
-CONTAINER_HOME="/home/${CONTAINER_USER}"
-
 # Get current date with timestamp
 CURRENT_DATE=$(date +%Y%m%d%H%M%S)
 
@@ -122,22 +117,43 @@ fi
 [ -n "$CMD_DOCKER_USERNAME" ] && DOCKER_USERNAME="$CMD_DOCKER_USERNAME"
 [ -n "$CMD_VNC_PASSWORD" ] && VNC_PASSWD="$CMD_VNC_PASSWORD"
 [ -n "$CMD_DESKTOP_ENV" ] && DESKTOP_ENV="$CMD_DESKTOP_ENV"
+[ -n "$CMD_SYSTEM" ] && SYSTEM="$CMD_SYSTEM"
+[ -n "$CMD_SYSTEM_VERSION" ] && SYSTEM_VERSION="$CMD_SYSTEM_VERSION"
 
-# Set defaults if still empty
+# Set defaults
 VNC_PASSWD="${VNC_PASSWD:-$DEFAULT_VNC_PASSWORD}"
 DESKTOP_ENV="${DESKTOP_ENV:-xfce}"
+SYSTEM="${SYSTEM:-debian}"
 
-# Define tag variations (Full and Minimized)
-TAG_BASE_FULL="${BASE_VERSION}-${DESKTOP_ENV}"
-TAG_BASE_MIN=""
-if [ "$BASE_VERSION" != "trixie" ]; then
-    TAG_BASE_MIN="${BASE_VERSION}"
+# Default versions based on system
+if [ -z "$SYSTEM_VERSION" ]; then
+    case $SYSTEM in
+        debian) SYSTEM_VERSION="trixie" ;;
+        ubuntu) SYSTEM_VERSION="noble" ;;
+        fedora) SYSTEM_VERSION="41" ;;
+        arch) SYSTEM_VERSION="latest" ;;
+        alpine) SYSTEM_VERSION="latest" ;;
+        *) SYSTEM_VERSION="latest" ;;
+    esac
 fi
-if [ "$DESKTOP_ENV" != "xfce" ]; then
-    if [ -n "$TAG_BASE_MIN" ]; then
-        TAG_BASE_MIN="${TAG_BASE_MIN}-${DESKTOP_ENV}"
+
+# Define tags based on system and version
+TAG_BASE_FULL="${SYSTEM}-${SYSTEM_VERSION}-${DESKTOP_ENV}"
+TAG_BASE_MIN=""
+
+# Minimized tags (omit defaults)
+if [ "$SYSTEM" = "debian" ] && [ "$SYSTEM_VERSION" = "trixie" ]; then
+    # Default system/version, tag can be just desktop-env
+    if [ "$DESKTOP_ENV" = "xfce" ]; then
+        TAG_BASE_MIN=""
     else
         TAG_BASE_MIN="${DESKTOP_ENV}"
+    fi
+else
+    # Non-default system OR non-default version
+    TAG_BASE_MIN="${SYSTEM}-${SYSTEM_VERSION}"
+    if [ "$DESKTOP_ENV" != "xfce" ]; then
+        TAG_BASE_MIN="${TAG_BASE_MIN}-${DESKTOP_ENV}"
     fi
 fi
 
@@ -167,8 +183,8 @@ if [ "$CREATE_ENV" = true ]; then
     update_env_var "DOCKER_USERNAME" "$DOCKER_USERNAME" "$ENV_FILE"
     update_env_var "VNC_PASSWD" "$VNC_PASSWD" "$ENV_FILE"
     update_env_var "IMAGE_TAG" "$IMAGE_TAG" "$ENV_FILE"
-    update_env_var "CONTAINER_HOME" "$CONTAINER_HOME" "$ENV_FILE"
-    update_env_var "BASE_VERSION" "$BASE_VERSION" "$ENV_FILE"
+    update_env_var "SYSTEM" "$SYSTEM" "$ENV_FILE"
+    update_env_var "SYSTEM_VERSION" "$SYSTEM_VERSION" "$ENV_FILE"
     update_env_var "DESKTOP_ENV" "$DESKTOP_ENV" "$ENV_FILE"
     
     echo ".env file updated."
@@ -185,12 +201,25 @@ else
     # Update the .env if explicitly provided via args or if building
     if [ "$EXECUTE_BUILD" = true ] || [ "$START_CONTAINER" = true ]; then
         update_env_var "DESKTOP_ENV" "$DESKTOP_ENV" "$ENV_FILE"
-        update_env_var "BASE_VERSION" "$BASE_VERSION" "$ENV_FILE"
+        update_env_var "SYSTEM" "$SYSTEM" "$ENV_FILE"
+        update_env_var "SYSTEM_VERSION" "$SYSTEM_VERSION" "$ENV_FILE"
         update_env_var "IMAGE_TAG" "$IMAGE_TAG" "$ENV_FILE"
         update_env_var "DOCKER_USERNAME" "$DOCKER_USERNAME" "$ENV_FILE"
         update_env_var "VNC_PASSWD" "$VNC_PASSWD" "$ENV_FILE"
     fi
 fi
+
+# Determine CONTAINER_USER based on system
+case $SYSTEM in
+    debian) CONTAINER_USER="debian" ;;
+    ubuntu) CONTAINER_USER="ubuntu" ;;
+    arch) CONTAINER_USER="arch" ;;
+    alpine) CONTAINER_USER="alpine" ;;
+    fedora) CONTAINER_USER="user" ;;
+    *) CONTAINER_USER="user" ;;
+esac
+CONTAINER_HOME="/home/${CONTAINER_USER}"
+update_env_var "CONTAINER_HOME" "$CONTAINER_HOME" "$ENV_FILE"
 
 
 
@@ -201,15 +230,30 @@ fi
 
 
 if [ "$PUBLISH" = true ] || [ "$EXECUTE_BUILD" = true ]; then
-    if [ -f "${DESKTOP_ENV}.Dockerfile" ]; then
-        DOCKERFILE="${DESKTOP_ENV}.Dockerfile"
-        echo "Building using flavor-specific $DOCKERFILE"
+    # Determine base dockerfile
+    BASE_DOCKERFILE="base.Dockerfile"
+    if [ -f "base.${SYSTEM}.Dockerfile" ]; then
+        BASE_DOCKERFILE="base.${SYSTEM}.Dockerfile"
+    fi
+
+    # Determine flavor dockerfile
+    DOCKERFILE="${DESKTOP_ENV}.Dockerfile"
+    if [ -f "${DESKTOP_ENV}.${SYSTEM}.Dockerfile" ]; then
+        DOCKERFILE="${DESKTOP_ENV}.${SYSTEM}.Dockerfile"
+    fi
+
+    if [ -f "$DOCKERFILE" ]; then
+        echo "Building using $DOCKERFILE"
         
         # Build base image locally first?
         # Note: For multi-arch buildx, this might be tricky if base isn't pushed.
         # But for local builds it's fine.
-        echo "Building base image from base.Dockerfile..."
-        docker build -t desktop-in-docker-base:latest -f base.Dockerfile .
+        echo "Building base image from $BASE_DOCKERFILE..."
+        docker build -t desktop-in-docker-base:latest \
+            --build-arg SYSTEM="$SYSTEM" \
+            --build-arg SYSTEM_VERSION="$SYSTEM_VERSION" \
+            --build-arg USERNAME="$CONTAINER_USER" \
+            -f "$BASE_DOCKERFILE" .
     else
         DOCKERFILE="Dockerfile"
         echo "Building standard version using Dockerfile"
@@ -257,6 +301,7 @@ if [ "$PUBLISH" = true ]; then
     docker buildx build \
         --platform linux/amd64,linux/arm64 \
         --build-arg DESKTOP_ENV="$DESKTOP_ENV" \
+        --build-arg USERNAME="$CONTAINER_USER" \
         "${BUILD_TAGS_FLAVOR[@]}" \
         --push \
         -f "$DOCKERFILE" .
@@ -276,6 +321,7 @@ elif [ "$EXECUTE_BUILD" = true ]; then
     
     docker build \
         --build-arg DESKTOP_ENV="$DESKTOP_ENV" \
+        --build-arg USERNAME="$CONTAINER_USER" \
         "${BUILD_TAGS_FLAVOR[@]}" \
         -f "$DOCKERFILE" .
 
