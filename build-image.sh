@@ -254,13 +254,27 @@ if [ "$PUBLISH" = true ] || [ "$EXECUTE_BUILD" = true ]; then
         BASE_BUILD_TAGS=()
         for tb in "${BASE_SYS_BASES[@]}"; do
             if [ -n "$tb" ]; then
+                echo "  [base tag] (always) ${BASE_IMAGE_NAME}:${tb}-${CURRENT_DATE}"
                 BASE_BUILD_TAGS+=("-t" "${BASE_IMAGE_NAME}:${tb}-${CURRENT_DATE}")
-                [ "$TAG_LATEST" = true ] && BASE_BUILD_TAGS+=("-t" "${BASE_IMAGE_NAME}:${tb}-latest")
-                [ "$TAG_SNAPSHOT" = true ] && BASE_BUILD_TAGS+=("-t" "${BASE_IMAGE_NAME}:${tb}-snapshot")
+                if [ "$TAG_LATEST" = true ]; then
+                    echo "  [base tag] (--latest specified) ${BASE_IMAGE_NAME}:${tb}-latest"
+                    BASE_BUILD_TAGS+=("-t" "${BASE_IMAGE_NAME}:${tb}-latest")
+                fi
+                if [ "$TAG_SNAPSHOT" = true ]; then
+                    echo "  [base tag] (--no-snapshot not specified) ${BASE_IMAGE_NAME}:${tb}-snapshot"
+                    BASE_BUILD_TAGS+=("-t" "${BASE_IMAGE_NAME}:${tb}-snapshot")
+                fi
             else
+                echo "  [base tag] (always, default system+version) ${BASE_IMAGE_NAME}:${CURRENT_DATE}"
                 BASE_BUILD_TAGS+=("-t" "${BASE_IMAGE_NAME}:${CURRENT_DATE}")
-                [ "$TAG_LATEST" = true ] && BASE_BUILD_TAGS+=("-t" "${BASE_IMAGE_NAME}:latest")
-                [ "$TAG_SNAPSHOT" = true ] && BASE_BUILD_TAGS+=("-t" "${BASE_IMAGE_NAME}:snapshot")
+                if [ "$TAG_LATEST" = true ]; then
+                    echo "  [base tag] (--latest specified, default system+version) ${BASE_IMAGE_NAME}:latest"
+                    BASE_BUILD_TAGS+=("-t" "${BASE_IMAGE_NAME}:latest")
+                fi
+                if [ "$TAG_SNAPSHOT" = true ]; then
+                    echo "  [base tag] (--no-snapshot not specified, default system+version) ${BASE_IMAGE_NAME}:snapshot"
+                    BASE_BUILD_TAGS+=("-t" "${BASE_IMAGE_NAME}:snapshot")
+                fi
             fi
         done
 
@@ -290,13 +304,27 @@ if [ "$PUBLISH" = true ] || [ "$EXECUTE_BUILD" = true ]; then
     BUILD_TAGS=()
     for tb in "${TAG_BASES[@]}"; do
         if [ -n "$tb" ]; then
+            echo "  [desktop tag] (always) ${IMAGE_NAME}:${tb}-${CURRENT_DATE}"
             BUILD_TAGS+=("-t" "${IMAGE_NAME}:${tb}-${CURRENT_DATE}")
-            [ "$TAG_LATEST" = true ] && BUILD_TAGS+=("-t" "${IMAGE_NAME}:${tb}-latest")
-            [ "$TAG_SNAPSHOT" = true ] && BUILD_TAGS+=("-t" "${IMAGE_NAME}:${tb}-snapshot")
+            if [ "$TAG_LATEST" = true ]; then
+                echo "  [desktop tag] (--latest specified) ${IMAGE_NAME}:${tb}-latest"
+                BUILD_TAGS+=("-t" "${IMAGE_NAME}:${tb}-latest")
+            fi
+            if [ "$TAG_SNAPSHOT" = true ]; then
+                echo "  [desktop tag] (--no-snapshot not specified) ${IMAGE_NAME}:${tb}-snapshot"
+                BUILD_TAGS+=("-t" "${IMAGE_NAME}:${tb}-snapshot")
+            fi
         else
+            echo "  [desktop tag] (always, default system+version+desktop) ${IMAGE_NAME}:${CURRENT_DATE}"
             BUILD_TAGS+=("-t" "${IMAGE_NAME}:${CURRENT_DATE}")
-            [ "$TAG_LATEST" = true ] && BUILD_TAGS+=("-t" "${IMAGE_NAME}:latest")
-            [ "$TAG_SNAPSHOT" = true ] && BUILD_TAGS+=("-t" "${IMAGE_NAME}:snapshot")
+            if [ "$TAG_LATEST" = true ]; then
+                echo "  [desktop tag] (--latest specified, default system+version+desktop) ${IMAGE_NAME}:latest"
+                BUILD_TAGS+=("-t" "${IMAGE_NAME}:latest")
+            fi
+            if [ "$TAG_SNAPSHOT" = true ]; then
+                echo "  [desktop tag] (--no-snapshot not specified, default system+version+desktop) ${IMAGE_NAME}:snapshot"
+                BUILD_TAGS+=("-t" "${IMAGE_NAME}:snapshot")
+            fi
         fi
     done
 
@@ -326,13 +354,27 @@ if [ "$PUBLISH" = true ]; then
     BASE_PUBLISH_TAGS=()
     for tb in "${BASE_SYS_BASES[@]}"; do
         if [ -n "$tb" ]; then
+            echo "  [publish base tag] (always) ${BASE_IMAGE_NAME}:${tb}-${CURRENT_DATE}"
             BASE_PUBLISH_TAGS+=("-t" "${BASE_IMAGE_NAME}:${tb}-${CURRENT_DATE}")
-            [ "$TAG_LATEST" = true ] && BASE_PUBLISH_TAGS+=("-t" "${BASE_IMAGE_NAME}:${tb}-latest")
-            [ "$TAG_SNAPSHOT" = true ] && BASE_PUBLISH_TAGS+=("-t" "${BASE_IMAGE_NAME}:${tb}-snapshot")
+            if [ "$TAG_LATEST" = true ]; then
+                echo "  [publish base tag] (--latest specified) ${BASE_IMAGE_NAME}:${tb}-latest"
+                BASE_PUBLISH_TAGS+=("-t" "${BASE_IMAGE_NAME}:${tb}-latest")
+            fi
+            if [ "$TAG_SNAPSHOT" = true ]; then
+                echo "  [publish base tag] (--no-snapshot not specified) ${BASE_IMAGE_NAME}:${tb}-snapshot"
+                BASE_PUBLISH_TAGS+=("-t" "${BASE_IMAGE_NAME}:${tb}-snapshot")
+            fi
         else
+            echo "  [publish base tag] (always, default system+version) ${BASE_IMAGE_NAME}:${CURRENT_DATE}"
             BASE_PUBLISH_TAGS+=("-t" "${BASE_IMAGE_NAME}:${CURRENT_DATE}")
-            [ "$TAG_LATEST" = true ] && BASE_PUBLISH_TAGS+=("-t" "${BASE_IMAGE_NAME}:latest")
-            [ "$TAG_SNAPSHOT" = true ] && BASE_PUBLISH_TAGS+=("-t" "${BASE_IMAGE_NAME}:snapshot")
+            if [ "$TAG_LATEST" = true ]; then
+                echo "  [publish base tag] (--latest specified, default system+version) ${BASE_IMAGE_NAME}:latest"
+                BASE_PUBLISH_TAGS+=("-t" "${BASE_IMAGE_NAME}:latest")
+            fi
+            if [ "$TAG_SNAPSHOT" = true ]; then
+                echo "  [publish base tag] (--no-snapshot not specified, default system+version) ${BASE_IMAGE_NAME}:snapshot"
+                BASE_PUBLISH_TAGS+=("-t" "${BASE_IMAGE_NAME}:snapshot")
+            fi
         fi
     done
 
