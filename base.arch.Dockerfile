@@ -4,6 +4,11 @@ ARG SYSTEM_VERSION=latest
 FROM archlinux:${SYSTEM_VERSION}
 
 ARG OPENJDK_VERSION
+ARG USE_CN_MIRROR=false
+
+COPY build-scripts/switch-mirror.sh /usr/local/bin/switch-mirror.sh
+RUN chmod +x /usr/local/bin/switch-mirror.sh && \
+    USE_CN_MIRROR="$USE_CN_MIRROR" /usr/local/bin/switch-mirror.sh
 
 # Initialize pacman keyring first (required in Docker), then install dependencies
 RUN pacman-key --init && \

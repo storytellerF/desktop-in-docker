@@ -230,6 +230,23 @@ fi
 
 
 if [ "$PUBLISH" = true ] || [ "$EXECUTE_BUILD" = true ]; then
+    # Auto-enable China mirror switching when the local timezone is in China.
+    CURRENT_TZ="${TZ:-}"
+    if [ -z "$CURRENT_TZ" ] && [ -f /etc/timezone ]; then
+        CURRENT_TZ=$(cat /etc/timezone)
+    fi
+    if [ -z "$CURRENT_TZ" ]; then
+        CURRENT_TZ=$(readlink /etc/localtime 2>/dev/null | sed 's#.*/zoneinfo/##')
+    fi
+
+    USE_CN_MIRROR="false"
+    case "$CURRENT_TZ" in
+        Asia/Shanghai|Asia/Chongqing|Asia/Harbin|Asia/Urumqi|PRC)
+            USE_CN_MIRROR="true"
+            ;;
+    esac
+    echo "Detected timezone: ${CURRENT_TZ:-unknown}, USE_CN_MIRROR=$USE_CN_MIRROR"
+
     # Determine base dockerfile
     BASE_DOCKERFILE="base.Dockerfile"
     if [ -f "base.${SYSTEM}.Dockerfile" ]; then
@@ -253,6 +270,7 @@ if [ "$PUBLISH" = true ] || [ "$EXECUTE_BUILD" = true ]; then
             --build-arg SYSTEM="$SYSTEM" \
             --build-arg SYSTEM_VERSION="$SYSTEM_VERSION" \
             --build-arg USERNAME="$CONTAINER_USER" \
+            --build-arg USE_CN_MIRROR="$USE_CN_MIRROR" \
             -f "$BASE_DOCKERFILE" .
     else
         DOCKERFILE="Dockerfile"
