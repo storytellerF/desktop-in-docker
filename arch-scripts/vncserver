@@ -1,0 +1,56 @@
+#!/bin/bash
+# Wrapper for Arch Linux vncserver:
+# Arch's vncserver only accepts ":display" as argument; all other options
+# must be written to ~/.config/tigervnc/config.
+# This wrapper translates Debian-style CLI flags (used by start-vnc.sh)
+# into the config file format, then calls the real vncserver.
+
+DISPLAY_ARG=""
+CONF_DIR="${HOME}/.config/tigervnc"
+mkdir -p "$CONF_DIR"
+
+# Truncate config file so each start is clean
+> "$CONF_DIR/config"
+
+# Parse args: extract display number and translate flags to config
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        :*)
+            DISPLAY_ARG="$1"
+            ;;
+        -geometry)
+            echo "geometry=$2" >> "$CONF_DIR/config"
+            shift
+            ;;
+        -depth)
+            echo "depth=$2" >> "$CONF_DIR/config"
+            shift
+            ;;
+        -localhost)
+            echo "localhost=$2" >> "$CONF_DIR/config"
+            shift
+            ;;
+        -SecurityTypes)
+            echo "securitytypes=$2" >> "$CONF_DIR/config"
+            shift
+            ;;
+        -rfbauth)
+            echo "rfbauth=$2" >> "$CONF_DIR/config"
+            shift
+            ;;
+        -kill)
+            exec /usr/sbin/vncserver -kill "$2"
+            ;;
+        *)
+            # ignore unknown flags silently
+            ;;
+    esac
+    shift
+done
+
+if [[ -z "$DISPLAY_ARG" ]]; then
+    echo "usage: vncserver <display>" >&2
+    exit 2
+fi
+
+exec /usr/sbin/vncserver "$DISPLAY_ARG"

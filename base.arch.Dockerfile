@@ -1,16 +1,16 @@
 # Base Image for Arch Linux
-# Arch Linux uses a rolling release model; version tag is typically "latest" or a date snapshot
+# Arch Linux uses a rolling release model
 ARG SYSTEM_VERSION=latest
 FROM archlinux:${SYSTEM_VERSION}
 
 ARG OPENJDK_VERSION
 
-# Install Dependencies: VNC, Supervisor, noVNC, and other tools
-# Enable multilib and update mirrors first
-RUN pacman -Syu --noconfirm && \
+# Initialize pacman keyring first (required in Docker), then install dependencies
+RUN pacman-key --init && \
+    pacman-key --populate archlinux && \
+    pacman -Syu --noconfirm && \
     pacman -S --noconfirm --needed \
     dbus \
-    python-supervisor \
     tigervnc \
     xorg-xrdb \
     xorg-server \
@@ -18,14 +18,39 @@ RUN pacman -Syu --noconfirm && \
     xorg-xinit \
     xterm \
     xorg-server-xvfb \
-    python-websockify \
-    novnc \
+    python \
+    python-pip \
     wget \
     unzip \
     sudo \
     pv \
     bash \
+    supervisor \
     && pacman -Scc --noconfirm
+
+# Install websockify via pip to an isolated directory to avoid
+# conflicting with pacman-managed python packages (requests, urllib3, etc.)
+RUN pip install --target=/opt/pip-packages websockify && \
+    echo '#!/bin/sh' > /usr/bin/websockify && \
+    echo 'PYTHONPATH=/opt/pip-packages exec python -m websockify "$@"' >> /usr/bin/websockify && \
+    chmod +x /usr/bin/websockify
+
+# Download and install noVNC
+RUN wget -q https://github.com/novnc/noVNC/archive/refs/tags/v1.5.0.tar.gz -O /tmp/novnc.tar.gz && \
+    tar -xzf /tmp/novnc.tar.gz -C /opt && \
+    mv /opt/noVNC-1.5.0 /opt/novnc && \
+    rm /tmp/novnc.tar.gz
+
+# Create symlink so supervisord.conf path (/usr/share/novnc) works correctly
+RUN mkdir -p /usr/share && \
+    ln -s /opt/novnc /usr/share/novnc
+
+# Arch's vncserver only accepts a single ":display" arg; all options go into
+# ~/.config/tigervnc/config. Install a wrapper at /usr/local/bin/vncserver
+# (takes PATH priority over /usr/sbin/vncserver) that translates the
+# Debian-style CLI flags used by start-vnc.sh into the config file format.
+COPY arch-scripts/vncserver /usr/local/bin/vncserver
+RUN chmod +x /usr/local/bin/vncserver
 
 # Setup locale
 RUN echo "en_US.UTF-8 UTF-8" >> /etc/locale.gen && \

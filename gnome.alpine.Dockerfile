@@ -1,0 +1,23 @@
+# Use the locally built base image
+ARG BASE_IMAGE=desktop-in-docker-base:latest
+FROM ${BASE_IMAGE}
+
+USER root
+
+# Install GNOME on Alpine Linux
+RUN apk add --no-cache \
+    gnome \
+    gnome-apps-extra \
+    dbus-x11 \
+    xdg-utils
+
+ARG USERNAME=alpine
+USER $USERNAME
+WORKDIR /home/$USERNAME
+
+RUN mkdir -p .config/tigervnc && \
+    echo "#!/bin/sh" > .config/tigervnc/xstartup && \
+    echo "[ -f \"\$HOME/.Xresources\" ] && xrdb \"\$HOME/.Xresources\"" >> .config/tigervnc/xstartup && \
+    echo "export DISPLAY=:1" >> .config/tigervnc/xstartup && \
+    echo "exec dbus-run-session gnome-session" >> .config/tigervnc/xstartup && \
+    chmod +x .config/tigervnc/xstartup
