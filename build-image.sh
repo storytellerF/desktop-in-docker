@@ -222,15 +222,15 @@ if [ "$PUBLISH" = true ] || [ "$EXECUTE_BUILD" = true ]; then
     echo "Detected timezone: ${CURRENT_TZ:-unknown}, USE_CN_MIRROR=$USE_CN_MIRROR"
 
     # Determine base dockerfile
-    BASE_DOCKERFILE="base.Dockerfile"
-    if [ -f "base.${SYSTEM}.Dockerfile" ]; then
-        BASE_DOCKERFILE="base.${SYSTEM}.Dockerfile"
+    BASE_DOCKERFILE="dockerfiles/base/Dockerfile"
+    if [ -f "dockerfiles/base/${SYSTEM}.Dockerfile" ]; then
+        BASE_DOCKERFILE="dockerfiles/base/${SYSTEM}.Dockerfile"
     fi
 
     # Determine flavor dockerfile
-    DOCKERFILE="${DESKTOP_ENV}.Dockerfile"
-    if [ -f "${DESKTOP_ENV}.${SYSTEM}.Dockerfile" ]; then
-        DOCKERFILE="${DESKTOP_ENV}.${SYSTEM}.Dockerfile"
+    DOCKERFILE="dockerfiles/${DESKTOP_ENV}/Dockerfile"
+    if [ -f "dockerfiles/${DESKTOP_ENV}/${SYSTEM}.Dockerfile" ]; then
+        DOCKERFILE="dockerfiles/${DESKTOP_ENV}/${SYSTEM}.Dockerfile"
     fi
 
     if [ -f "$DOCKERFILE" ]; then
