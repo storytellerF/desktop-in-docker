@@ -2,7 +2,6 @@
 set -e
 
 IMAGE_NAME="desktop-in-docker"
-# IMAGE_TAG="latest"
 ENV_FILE=".env"
 DEFAULT_VNC_PASSWORD="password"
 
@@ -113,6 +112,8 @@ if [ -f "$ENV_FILE" ]; then
     source "$ENV_FILE"
 fi
 
+IMAGE_TIMESTAMP="${IMAGE_TIMESTAMP:-$CURRENT_DATE}"
+
 # Re-apply command line arguments (overriding .env)
 [ -n "$CMD_DOCKER_USERNAME" ] && DOCKER_USERNAME="$CMD_DOCKER_USERNAME"
 [ -n "$CMD_VNC_PASSWORD" ] && VNC_PASSWD="$CMD_VNC_PASSWORD"
@@ -171,42 +172,16 @@ if [ "$CREATE_ENV" = true ]; then
     read -p "Enter Docker Hub Username (default: $DOCKER_USERNAME, optional, required for publish): " INPUT_DOCKER_USERNAME
     DOCKER_USERNAME="${INPUT_DOCKER_USERNAME:-$DOCKER_USERNAME}"
 
-    # Determine IMAGE_TAG (use minimized as standard for .env)
-    if [ -n "$TAG_BASE_MIN" ]; then
-        IMAGE_TAG="${TAG_BASE_MIN}-${CURRENT_DATE}"
-    else
-        IMAGE_TAG="${CURRENT_DATE}"
-    fi
-
     echo "Updating $ENV_FILE..."
     touch "$ENV_FILE"
+    IMAGE_TIMESTAMP="$CURRENT_DATE"
     update_env_var "DOCKER_USERNAME" "$DOCKER_USERNAME" "$ENV_FILE"
     update_env_var "VNC_PASSWD" "$VNC_PASSWD" "$ENV_FILE"
-    update_env_var "IMAGE_TAG" "$IMAGE_TAG" "$ENV_FILE"
-    update_env_var "SYSTEM" "$SYSTEM" "$ENV_FILE"
-    update_env_var "SYSTEM_VERSION" "$SYSTEM_VERSION" "$ENV_FILE"
-    update_env_var "DESKTOP_ENV" "$DESKTOP_ENV" "$ENV_FILE"
-    
+    update_env_var "IMAGE_TIMESTAMP" "$IMAGE_TIMESTAMP" "$ENV_FILE"
+
     echo ".env file updated."
 else
-    # If a build is requested or tag is empty, calculate primary tag
-    if [ "$EXECUTE_BUILD" = true ] || [ "$PUBLISH" = true ] || [ -z "$IMAGE_TAG" ]; then
-        if [ -n "$TAG_BASE_MIN" ]; then
-            IMAGE_TAG="${TAG_BASE_MIN}-${CURRENT_DATE}"
-        else
-            IMAGE_TAG="${CURRENT_DATE}"
-        fi
-    fi
-
-    # Update the .env if explicitly provided via args or if building
-    if [ "$EXECUTE_BUILD" = true ] || [ "$START_CONTAINER" = true ]; then
-        update_env_var "DESKTOP_ENV" "$DESKTOP_ENV" "$ENV_FILE"
-        update_env_var "SYSTEM" "$SYSTEM" "$ENV_FILE"
-        update_env_var "SYSTEM_VERSION" "$SYSTEM_VERSION" "$ENV_FILE"
-        update_env_var "IMAGE_TAG" "$IMAGE_TAG" "$ENV_FILE"
-        update_env_var "DOCKER_USERNAME" "$DOCKER_USERNAME" "$ENV_FILE"
-        update_env_var "VNC_PASSWD" "$VNC_PASSWD" "$ENV_FILE"
-    fi
+    echo "Not creating .env file. Using existing values or defaults."
 fi
 
 # Determine CONTAINER_USER based on system
@@ -219,9 +194,6 @@ case $SYSTEM in
     *) CONTAINER_USER="user" ;;
 esac
 CONTAINER_HOME="/home/${CONTAINER_USER}"
-update_env_var "CONTAINER_HOME" "$CONTAINER_HOME" "$ENV_FILE"
-
-
 
 # Prepend Docker Username to Image Name if set
 if [ -n "$DOCKER_USERNAME" ]; then
@@ -357,6 +329,24 @@ fi
 # Start container if requested
 if [ "$START_CONTAINER" = true ]; then
     echo ""
+
+    # Determine IMAGE_TAG for docker compose
+    if [ -n "$TAG_BASE_MIN" ]; then
+        IMAGE_TAG="${TAG_BASE_MIN}-snapshot"
+    elif [ -n "$TAG_BASE_FULL" ]; then
+        IMAGE_TAG="${TAG_BASE_FULL}-snapshot"
+    else
+        IMAGE_TAG="snapshot"
+    fi
+    [ "$TAG_LATEST" = true ] && IMAGE_TAG="${IMAGE_TAG%-snapshot}-latest"
+
+    # Export variables for docker compose
+    export DOCKER_USERNAME="${DOCKER_USERNAME:-storytellerf}"
+    export IMAGE_TAG
+    export CONTAINER_HOME
+    export VNC_PASSWD
+    echo "Exported DOCKER_USERNAME=$DOCKER_USERNAME, IMAGE_TAG=$IMAGE_TAG, CONTAINER_HOME=$CONTAINER_HOME"
+
     # 启动并检查是否成功，如果成功显示下面的log
     COMPOSE_FILES="-f docker-compose.yml"
     echo "Starting docker compose..."
