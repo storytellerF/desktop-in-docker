@@ -196,8 +196,10 @@ esac
 CONTAINER_HOME="/home/${CONTAINER_USER}"
 
 # Prepend Docker Username to Image Name if set
+BASE_IMAGE_NAME="desktop-in-docker-base"
 if [ -n "$DOCKER_USERNAME" ]; then
     IMAGE_NAME="${DOCKER_USERNAME}/${IMAGE_NAME}"
+    BASE_IMAGE_NAME="${DOCKER_USERNAME}/${BASE_IMAGE_NAME}"
 fi
 
 
@@ -237,8 +239,38 @@ if [ "$PUBLISH" = true ] || [ "$EXECUTE_BUILD" = true ]; then
         # Build base image locally first?
         # Note: For multi-arch buildx, this might be tricky if base isn't pushed.
         # But for local builds it's fine.
+        # Generate base image tags (system-version, without desktop env)
+        BASE_SYS_FULL="${SYSTEM}-${SYSTEM_VERSION}"
+        BASE_SYS_MIN=""
+        if ! ([ "$SYSTEM" = "debian" ] && [ "$SYSTEM_VERSION" = "trixie" ]); then
+            BASE_SYS_MIN="${SYSTEM}-${SYSTEM_VERSION}"
+        fi
+
+        BASE_SYS_BASES=("$BASE_SYS_FULL")
+        if [ "$BASE_SYS_MIN" != "$BASE_SYS_FULL" ]; then
+            BASE_SYS_BASES+=("$BASE_SYS_MIN")
+        fi
+
+        BASE_BUILD_TAGS=()
+        for tb in "${BASE_SYS_BASES[@]}"; do
+            if [ -n "$tb" ]; then
+                BASE_BUILD_TAGS+=("-t" "${BASE_IMAGE_NAME}:${tb}-${CURRENT_DATE}")
+                [ "$TAG_LATEST" = true ] && BASE_BUILD_TAGS+=("-t" "${BASE_IMAGE_NAME}:${tb}-latest")
+                [ "$TAG_SNAPSHOT" = true ] && BASE_BUILD_TAGS+=("-t" "${BASE_IMAGE_NAME}:${tb}-snapshot")
+            else
+                BASE_BUILD_TAGS+=("-t" "${BASE_IMAGE_NAME}:${CURRENT_DATE}")
+                [ "$TAG_LATEST" = true ] && BASE_BUILD_TAGS+=("-t" "${BASE_IMAGE_NAME}:latest")
+                [ "$TAG_SNAPSHOT" = true ] && BASE_BUILD_TAGS+=("-t" "${BASE_IMAGE_NAME}:snapshot")
+            fi
+        done
+
+        # Reference tag for desktop Dockerfiles to use as FROM
+        BASE_IMAGE_LOCAL_REF="${BASE_IMAGE_NAME}:${SYSTEM}-${SYSTEM_VERSION}-${CURRENT_DATE}"
+        BASE_IMAGE_PUBLISH_REF="${BASE_IMAGE_NAME}:${SYSTEM}-${SYSTEM_VERSION}-${CURRENT_DATE}"
+
         echo "Building base image from $BASE_DOCKERFILE..."
-        docker build -t desktop-in-docker-base:latest \
+        docker build \
+            "${BASE_BUILD_TAGS[@]}" \
             --build-arg SYSTEM="$SYSTEM" \
             --build-arg SYSTEM_VERSION="$SYSTEM_VERSION" \
             --build-arg USERNAME="$CONTAINER_USER" \
@@ -287,9 +319,45 @@ fi
 
 if [ "$PUBLISH" = true ]; then
     echo "Publisher mode enabled. Building and Pushing Multi-Arch Images (amd64, arm64)..."
-    
+
+    # Push base image
+    echo "Pushing base image..."
+    # Build publish tags for base (exclude the local-only desktop-in-docker-base:latest)
+    BASE_PUBLISH_TAGS=()
+    for tb in "${BASE_SYS_BASES[@]}"; do
+        if [ -n "$tb" ]; then
+            BASE_PUBLISH_TAGS+=("-t" "${BASE_IMAGE_NAME}:${tb}-${CURRENT_DATE}")
+            [ "$TAG_LATEST" = true ] && BASE_PUBLISH_TAGS+=("-t" "${BASE_IMAGE_NAME}:${tb}-latest")
+            [ "$TAG_SNAPSHOT" = true ] && BASE_PUBLISH_TAGS+=("-t" "${BASE_IMAGE_NAME}:${tb}-snapshot")
+        else
+            BASE_PUBLISH_TAGS+=("-t" "${BASE_IMAGE_NAME}:${CURRENT_DATE}")
+            [ "$TAG_LATEST" = true ] && BASE_PUBLISH_TAGS+=("-t" "${BASE_IMAGE_NAME}:latest")
+            [ "$TAG_SNAPSHOT" = true ] && BASE_PUBLISH_TAGS+=("-t" "${BASE_IMAGE_NAME}:snapshot")
+        fi
+    done
+
     docker buildx build \
         --platform linux/amd64,linux/arm64 \
+        --build-arg SYSTEM="$SYSTEM" \
+        --build-arg SYSTEM_VERSION="$SYSTEM_VERSION" \
+        --build-arg USERNAME="$CONTAINER_USER" \
+        --build-arg USE_CN_MIRROR="$USE_CN_MIRROR" \
+        "${BASE_PUBLISH_TAGS[@]}" \
+        --push \
+        -f "$BASE_DOCKERFILE" .
+
+    echo "Base image pushed variants:"
+    for tag_option in "${BASE_PUBLISH_TAGS[@]}"; do
+        if [ "$tag_option" != "-t" ]; then
+            echo "  - $tag_option"
+        fi
+    done
+
+    # Push desktop image
+    echo "Pushing desktop image..."
+    docker buildx build \
+        --platform linux/amd64,linux/arm64 \
+        --build-arg BASE_IMAGE="${BASE_IMAGE_PUBLISH_REF}" \
         --build-arg DESKTOP_ENV="$DESKTOP_ENV" \
         --build-arg USERNAME="$CONTAINER_USER" \
         "${BUILD_TAGS_FLAVOR[@]}" \
@@ -297,7 +365,7 @@ if [ "$PUBLISH" = true ]; then
         -f "$DOCKERFILE" .
 
     echo "Multi-arch build and push finished."
-    echo "Image pushed variants:"
+    echo "Desktop image pushed variants:"
     for tag_option in "${BUILD_TAGS_FLAVOR[@]}"; do
         if [ "$tag_option" != "-t" ]; then
             echo "  - $tag_option"
@@ -310,13 +378,20 @@ elif [ "$EXECUTE_BUILD" = true ]; then
     echo "Building the Docker image locally for current architecture..."
     
     docker build \
+        --build-arg BASE_IMAGE="${BASE_IMAGE_LOCAL_REF}" \
         --build-arg DESKTOP_ENV="$DESKTOP_ENV" \
         --build-arg USERNAME="$CONTAINER_USER" \
         "${BUILD_TAGS_FLAVOR[@]}" \
         -f "$DOCKERFILE" .
 
     echo "Docker image build process finished."
-    echo "Image created variants:"
+    echo "Base image created variants:"
+    for tag_option in "${BASE_BUILD_TAGS[@]}"; do
+        if [ "$tag_option" != "-t" ]; then
+            echo "  - $tag_option"
+        fi
+    done
+    echo "Desktop image created variants:"
     for tag_option in "${BUILD_TAGS_FLAVOR[@]}"; do
         if [ "$tag_option" != "-t" ]; then
             echo "  - $tag_option"
