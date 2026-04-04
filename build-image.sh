@@ -24,6 +24,64 @@ usage() {
     exit 1
 }
 
+append_tag_with_reason() {
+    local tags_name=$1
+    local reasons_name=$2
+    local reason=$3
+    local tag=$4
+    local -n tags_ref="$tags_name"
+    local -n reasons_ref="$reasons_name"
+
+    tags_ref+=("-t" "$tag")
+    reasons_ref+=("$reason")
+}
+
+print_tag_summary() {
+    local title=$1
+    local tags_name=$2
+    local reasons_name=$3
+    local -n tags_ref="$tags_name"
+    local -n reasons_ref="$reasons_name"
+    local tag_header="Tag"
+    local reason_header="Reason"
+    local reason_index=0
+    local reason_width
+    local tag_width
+    local reason_sep
+    local tag_sep
+
+    reason_width=${#reason_header}
+    tag_width=${#tag_header}
+
+    for tag_option in "${tags_ref[@]}"; do
+        if [ "$tag_option" != "-t" ]; then
+            if [ ${#reasons_ref[$reason_index]} -gt "$reason_width" ]; then
+                reason_width=${#reasons_ref[$reason_index]}
+            fi
+            if [ ${#tag_option} -gt "$tag_width" ]; then
+                tag_width=${#tag_option}
+            fi
+            ((reason_index += 1))
+        fi
+    done
+
+    printf -v reason_sep '%*s' "$reason_width" ''
+    printf -v tag_sep '%*s' "$tag_width" ''
+    reason_sep=${reason_sep// /-}
+    tag_sep=${tag_sep// /-}
+
+    echo "$title"
+    printf '  | %-*s | %-*s |\n' "$tag_width" "$tag_header" "$reason_width" "$reason_header"
+    printf '  | %s | %s |\n' "$tag_sep" "$reason_sep"
+    reason_index=0
+    for tag_option in "${tags_ref[@]}"; do
+        if [ "$tag_option" != "-t" ]; then
+            printf '  | %-*s | %-*s |\n' "$tag_width" "$tag_option" "$reason_width" "${reasons_ref[$reason_index]}"
+            ((reason_index += 1))
+        fi
+    done
+}
+
 # Helper to write or update var in file
 update_env_var() {
     local key=$1
@@ -252,28 +310,23 @@ if [ "$PUBLISH" = true ] || [ "$EXECUTE_BUILD" = true ]; then
         fi
 
         BASE_BUILD_TAGS=()
+        BASE_BUILD_TAG_REASONS=()
         for tb in "${BASE_SYS_BASES[@]}"; do
             if [ -n "$tb" ]; then
-                echo "  [base tag] (always) ${BASE_IMAGE_NAME}:${tb}-${CURRENT_DATE}"
-                BASE_BUILD_TAGS+=("-t" "${BASE_IMAGE_NAME}:${tb}-${CURRENT_DATE}")
+                append_tag_with_reason "BASE_BUILD_TAGS" "BASE_BUILD_TAG_REASONS" "always" "${BASE_IMAGE_NAME}:${tb}-${CURRENT_DATE}"
                 if [ "$TAG_LATEST" = true ]; then
-                    echo "  [base tag] (--latest specified) ${BASE_IMAGE_NAME}:${tb}-latest"
-                    BASE_BUILD_TAGS+=("-t" "${BASE_IMAGE_NAME}:${tb}-latest")
+                    append_tag_with_reason "BASE_BUILD_TAGS" "BASE_BUILD_TAG_REASONS" "--latest specified" "${BASE_IMAGE_NAME}:${tb}-latest"
                 fi
                 if [ "$TAG_SNAPSHOT" = true ]; then
-                    echo "  [base tag] (--no-snapshot not specified) ${BASE_IMAGE_NAME}:${tb}-snapshot"
-                    BASE_BUILD_TAGS+=("-t" "${BASE_IMAGE_NAME}:${tb}-snapshot")
+                    append_tag_with_reason "BASE_BUILD_TAGS" "BASE_BUILD_TAG_REASONS" "--no-snapshot not specified" "${BASE_IMAGE_NAME}:${tb}-snapshot"
                 fi
             else
-                echo "  [base tag] (always, default system+version) ${BASE_IMAGE_NAME}:${CURRENT_DATE}"
-                BASE_BUILD_TAGS+=("-t" "${BASE_IMAGE_NAME}:${CURRENT_DATE}")
+                append_tag_with_reason "BASE_BUILD_TAGS" "BASE_BUILD_TAG_REASONS" "always, default system+version" "${BASE_IMAGE_NAME}:${CURRENT_DATE}"
                 if [ "$TAG_LATEST" = true ]; then
-                    echo "  [base tag] (--latest specified, default system+version) ${BASE_IMAGE_NAME}:latest"
-                    BASE_BUILD_TAGS+=("-t" "${BASE_IMAGE_NAME}:latest")
+                    append_tag_with_reason "BASE_BUILD_TAGS" "BASE_BUILD_TAG_REASONS" "--latest specified, default system+version" "${BASE_IMAGE_NAME}:latest"
                 fi
                 if [ "$TAG_SNAPSHOT" = true ]; then
-                    echo "  [base tag] (--no-snapshot not specified, default system+version) ${BASE_IMAGE_NAME}:snapshot"
-                    BASE_BUILD_TAGS+=("-t" "${BASE_IMAGE_NAME}:snapshot")
+                    append_tag_with_reason "BASE_BUILD_TAGS" "BASE_BUILD_TAG_REASONS" "--no-snapshot not specified, default system+version" "${BASE_IMAGE_NAME}:snapshot"
                 fi
             fi
         done
@@ -302,43 +355,40 @@ if [ "$PUBLISH" = true ] || [ "$EXECUTE_BUILD" = true ]; then
     fi
 
     BUILD_TAGS=()
+    BUILD_TAG_REASONS=()
     for tb in "${TAG_BASES[@]}"; do
         if [ -n "$tb" ]; then
-            echo "  [desktop tag] (always) ${IMAGE_NAME}:${tb}-${CURRENT_DATE}"
-            BUILD_TAGS+=("-t" "${IMAGE_NAME}:${tb}-${CURRENT_DATE}")
+            append_tag_with_reason "BUILD_TAGS" "BUILD_TAG_REASONS" "always" "${IMAGE_NAME}:${tb}-${CURRENT_DATE}"
             if [ "$TAG_LATEST" = true ]; then
-                echo "  [desktop tag] (--latest specified) ${IMAGE_NAME}:${tb}-latest"
-                BUILD_TAGS+=("-t" "${IMAGE_NAME}:${tb}-latest")
+                append_tag_with_reason "BUILD_TAGS" "BUILD_TAG_REASONS" "--latest specified" "${IMAGE_NAME}:${tb}-latest"
             fi
             if [ "$TAG_SNAPSHOT" = true ]; then
-                echo "  [desktop tag] (--no-snapshot not specified) ${IMAGE_NAME}:${tb}-snapshot"
-                BUILD_TAGS+=("-t" "${IMAGE_NAME}:${tb}-snapshot")
+                append_tag_with_reason "BUILD_TAGS" "BUILD_TAG_REASONS" "--no-snapshot not specified" "${IMAGE_NAME}:${tb}-snapshot"
             fi
         else
-            echo "  [desktop tag] (always, default system+version+desktop) ${IMAGE_NAME}:${CURRENT_DATE}"
-            BUILD_TAGS+=("-t" "${IMAGE_NAME}:${CURRENT_DATE}")
+            append_tag_with_reason "BUILD_TAGS" "BUILD_TAG_REASONS" "always, default system+version+desktop" "${IMAGE_NAME}:${CURRENT_DATE}"
             if [ "$TAG_LATEST" = true ]; then
-                echo "  [desktop tag] (--latest specified, default system+version+desktop) ${IMAGE_NAME}:latest"
-                BUILD_TAGS+=("-t" "${IMAGE_NAME}:latest")
+                append_tag_with_reason "BUILD_TAGS" "BUILD_TAG_REASONS" "--latest specified, default system+version+desktop" "${IMAGE_NAME}:latest"
             fi
             if [ "$TAG_SNAPSHOT" = true ]; then
-                echo "  [desktop tag] (--no-snapshot not specified, default system+version+desktop) ${IMAGE_NAME}:snapshot"
-                BUILD_TAGS+=("-t" "${IMAGE_NAME}:snapshot")
+                append_tag_with_reason "BUILD_TAGS" "BUILD_TAG_REASONS" "--no-snapshot not specified, default system+version+desktop" "${IMAGE_NAME}:snapshot"
             fi
         fi
     done
 
     BUILD_TAGS_FLAVOR=()
+    BUILD_TAGS_FLAVOR_REASONS=()
     for tag_option in "${BUILD_TAGS[@]}"; do
         if [[ "$tag_option" == "-t" ]]; then
             continue
         fi
-        
+
         if [[ "$tag_option" == *":"* ]]; then
             image_part="${tag_option%:*}"
             tag_part="${tag_option#*:}"
             modified_tag="${image_part}:${tag_part}"
             BUILD_TAGS_FLAVOR+=("-t" "$modified_tag")
+            BUILD_TAGS_FLAVOR_REASONS+=("${BUILD_TAG_REASONS[${#BUILD_TAGS_FLAVOR_REASONS[@]}]}")
         else
             BUILD_TAGS_FLAVOR+=("$tag_option")
         fi
@@ -352,28 +402,23 @@ if [ "$PUBLISH" = true ]; then
     echo "Pushing base image..."
     # Build publish tags for base (exclude the local-only desktop-in-docker-base:latest)
     BASE_PUBLISH_TAGS=()
+    BASE_PUBLISH_TAG_REASONS=()
     for tb in "${BASE_SYS_BASES[@]}"; do
         if [ -n "$tb" ]; then
-            echo "  [publish base tag] (always) ${BASE_IMAGE_NAME}:${tb}-${CURRENT_DATE}"
-            BASE_PUBLISH_TAGS+=("-t" "${BASE_IMAGE_NAME}:${tb}-${CURRENT_DATE}")
+            append_tag_with_reason "BASE_PUBLISH_TAGS" "BASE_PUBLISH_TAG_REASONS" "always" "${BASE_IMAGE_NAME}:${tb}-${CURRENT_DATE}"
             if [ "$TAG_LATEST" = true ]; then
-                echo "  [publish base tag] (--latest specified) ${BASE_IMAGE_NAME}:${tb}-latest"
-                BASE_PUBLISH_TAGS+=("-t" "${BASE_IMAGE_NAME}:${tb}-latest")
+                append_tag_with_reason "BASE_PUBLISH_TAGS" "BASE_PUBLISH_TAG_REASONS" "--latest specified" "${BASE_IMAGE_NAME}:${tb}-latest"
             fi
             if [ "$TAG_SNAPSHOT" = true ]; then
-                echo "  [publish base tag] (--no-snapshot not specified) ${BASE_IMAGE_NAME}:${tb}-snapshot"
-                BASE_PUBLISH_TAGS+=("-t" "${BASE_IMAGE_NAME}:${tb}-snapshot")
+                append_tag_with_reason "BASE_PUBLISH_TAGS" "BASE_PUBLISH_TAG_REASONS" "--no-snapshot not specified" "${BASE_IMAGE_NAME}:${tb}-snapshot"
             fi
         else
-            echo "  [publish base tag] (always, default system+version) ${BASE_IMAGE_NAME}:${CURRENT_DATE}"
-            BASE_PUBLISH_TAGS+=("-t" "${BASE_IMAGE_NAME}:${CURRENT_DATE}")
+            append_tag_with_reason "BASE_PUBLISH_TAGS" "BASE_PUBLISH_TAG_REASONS" "always, default system+version" "${BASE_IMAGE_NAME}:${CURRENT_DATE}"
             if [ "$TAG_LATEST" = true ]; then
-                echo "  [publish base tag] (--latest specified, default system+version) ${BASE_IMAGE_NAME}:latest"
-                BASE_PUBLISH_TAGS+=("-t" "${BASE_IMAGE_NAME}:latest")
+                append_tag_with_reason "BASE_PUBLISH_TAGS" "BASE_PUBLISH_TAG_REASONS" "--latest specified, default system+version" "${BASE_IMAGE_NAME}:latest"
             fi
             if [ "$TAG_SNAPSHOT" = true ]; then
-                echo "  [publish base tag] (--no-snapshot not specified, default system+version) ${BASE_IMAGE_NAME}:snapshot"
-                BASE_PUBLISH_TAGS+=("-t" "${BASE_IMAGE_NAME}:snapshot")
+                append_tag_with_reason "BASE_PUBLISH_TAGS" "BASE_PUBLISH_TAG_REASONS" "--no-snapshot not specified, default system+version" "${BASE_IMAGE_NAME}:snapshot"
             fi
         fi
     done
@@ -388,12 +433,7 @@ if [ "$PUBLISH" = true ]; then
         --push \
         -f "$BASE_DOCKERFILE" .
 
-    echo "Base image pushed variants:"
-    for tag_option in "${BASE_PUBLISH_TAGS[@]}"; do
-        if [ "$tag_option" != "-t" ]; then
-            echo "  - $tag_option"
-        fi
-    done
+    print_tag_summary "Base image pushed variants:" "BASE_PUBLISH_TAGS" "BASE_PUBLISH_TAG_REASONS"
 
     # Push desktop image
     echo "Pushing desktop image..."
@@ -407,12 +447,7 @@ if [ "$PUBLISH" = true ]; then
         -f "$DOCKERFILE" .
 
     echo "Multi-arch build and push finished."
-    echo "Desktop image pushed variants:"
-    for tag_option in "${BUILD_TAGS_FLAVOR[@]}"; do
-        if [ "$tag_option" != "-t" ]; then
-            echo "  - $tag_option"
-        fi
-    done
+    print_tag_summary "Desktop image pushed variants:" "BUILD_TAGS_FLAVOR" "BUILD_TAGS_FLAVOR_REASONS"
     echo "Cleaning up dangling images..."
     docker image prune -f
 
@@ -427,18 +462,8 @@ elif [ "$EXECUTE_BUILD" = true ]; then
         -f "$DOCKERFILE" .
 
     echo "Docker image build process finished."
-    echo "Base image created variants:"
-    for tag_option in "${BASE_BUILD_TAGS[@]}"; do
-        if [ "$tag_option" != "-t" ]; then
-            echo "  - $tag_option"
-        fi
-    done
-    echo "Desktop image created variants:"
-    for tag_option in "${BUILD_TAGS_FLAVOR[@]}"; do
-        if [ "$tag_option" != "-t" ]; then
-            echo "  - $tag_option"
-        fi
-    done
+    print_tag_summary "Base image created variants:" "BASE_BUILD_TAGS" "BASE_BUILD_TAG_REASONS"
+    print_tag_summary "Desktop image created variants:" "BUILD_TAGS_FLAVOR" "BUILD_TAGS_FLAVOR_REASONS"
     echo "Cleaning up dangling images..."
     docker image prune -f
 fi
