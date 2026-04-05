@@ -86,6 +86,14 @@ print_available_desktops() {
     echo "Available desktop environments: xfce, lxqt, kde, mate, cinnamon, lxde, gnome, enlightenment"
 }
 
+is_default_system_version() {
+    [ "$SYSTEM" = "debian" ] && [ "$SYSTEM_VERSION" = "trixie" ]
+}
+
+is_default_desktop() {
+    [ "$DESKTOP_ENV" = "xfce" ]
+}
+
 append_standard_image_tags() {
     local image_name=$1
     local tag_prefix=$2
@@ -98,6 +106,32 @@ append_standard_image_tags() {
     fi
     if [ "$TAG_SNAPSHOT" = true ]; then
         append_tag_with_reason "$tags_name" "$reasons_name" "--no-snapshot not specified" "${image_name}:${tag_prefix}-snapshot"
+    fi
+}
+
+append_short_image_tags() {
+    local image_name=$1
+    local full_prefix=$2
+    local short_prefix=$3
+    local description=$4
+    local tags_name=$5
+    local reasons_name=$6
+    local separator="-"
+
+    if [ "$short_prefix" = "$full_prefix" ]; then
+        return
+    fi
+
+    if [ -z "$short_prefix" ]; then
+        separator=""
+    fi
+
+    append_tag_with_reason "$tags_name" "$reasons_name" "always, ${description} shorthand" "${image_name}:${short_prefix}${separator}${CURRENT_DATE}"
+    if [ "$TAG_LATEST" = true ]; then
+        append_tag_with_reason "$tags_name" "$reasons_name" "--latest specified, ${description} shorthand" "${image_name}:${short_prefix}${separator}latest"
+    fi
+    if [ "$TAG_SNAPSHOT" = true ]; then
+        append_tag_with_reason "$tags_name" "$reasons_name" "--no-snapshot not specified, ${description} shorthand" "${image_name}:${short_prefix}${separator}snapshot"
     fi
 }
 
@@ -218,6 +252,23 @@ fi
 BASE_TAG_PREFIX="${SYSTEM}-${SYSTEM_VERSION}-base"
 DESKTOP_TAG_PREFIX="${SYSTEM}-${SYSTEM_VERSION}-${DESKTOP_ENV}"
 
+SHORT_BASE_TAG_PREFIX="$BASE_TAG_PREFIX"
+if is_default_system_version; then
+    SHORT_BASE_TAG_PREFIX="base"
+fi
+
+SHORT_DESKTOP_TAG_PREFIX="$DESKTOP_TAG_PREFIX"
+if is_default_system_version; then
+    SHORT_DESKTOP_TAG_PREFIX="$DESKTOP_ENV"
+fi
+if is_default_desktop; then
+    if is_default_system_version; then
+        SHORT_DESKTOP_TAG_PREFIX=""
+    else
+        SHORT_DESKTOP_TAG_PREFIX="${SYSTEM}-${SYSTEM_VERSION}"
+    fi
+fi
+
 # If creating env, handle interactive mode
 if [ "$CREATE_ENV" = true ]; then
     read -p "Enter VNC password (default: $VNC_PASSWD, enter 'r' for random): " INPUT_PASSWORD
@@ -311,6 +362,7 @@ if [ "$PUBLISH" = true ] || [ "$EXECUTE_BUILD" = true ]; then
     BASE_BUILD_TAGS=()
     BASE_BUILD_TAG_REASONS=()
     append_standard_image_tags "$BASE_IMAGE_NAME" "$BASE_TAG_PREFIX" "BASE_BUILD_TAGS" "BASE_BUILD_TAG_REASONS"
+    append_short_image_tags "$BASE_IMAGE_NAME" "$BASE_TAG_PREFIX" "$SHORT_BASE_TAG_PREFIX" "default system-version omitted" "BASE_BUILD_TAGS" "BASE_BUILD_TAG_REASONS"
 
     # Reference tag for desktop Dockerfiles to use as FROM
     BASE_IMAGE_LOCAL_REF="${BASE_IMAGE_NAME}:${BASE_TAG_PREFIX}-${CURRENT_DATE}"
@@ -328,6 +380,7 @@ if [ "$PUBLISH" = true ] || [ "$EXECUTE_BUILD" = true ]; then
     BUILD_TAGS=()
     BUILD_TAG_REASONS=()
     append_standard_image_tags "$IMAGE_NAME" "$DESKTOP_TAG_PREFIX" "BUILD_TAGS" "BUILD_TAG_REASONS"
+    append_short_image_tags "$IMAGE_NAME" "$DESKTOP_TAG_PREFIX" "$SHORT_DESKTOP_TAG_PREFIX" "default system-version and/or desktop omitted" "BUILD_TAGS" "BUILD_TAG_REASONS"
 
     BUILD_TAGS_FLAVOR=("${BUILD_TAGS[@]}")
     BUILD_TAGS_FLAVOR_REASONS=("${BUILD_TAG_REASONS[@]}")
@@ -341,6 +394,7 @@ if [ "$PUBLISH" = true ]; then
     BASE_PUBLISH_TAGS=()
     BASE_PUBLISH_TAG_REASONS=()
     append_standard_image_tags "$BASE_IMAGE_NAME" "$BASE_TAG_PREFIX" "BASE_PUBLISH_TAGS" "BASE_PUBLISH_TAG_REASONS"
+    append_short_image_tags "$BASE_IMAGE_NAME" "$BASE_TAG_PREFIX" "$SHORT_BASE_TAG_PREFIX" "default system-version omitted" "BASE_PUBLISH_TAGS" "BASE_PUBLISH_TAG_REASONS"
 
     docker buildx build \
         --platform linux/amd64,linux/arm64 \
