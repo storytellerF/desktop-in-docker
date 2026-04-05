@@ -1,5 +1,5 @@
 # Use the locally built base image
-ARG BASE_IMAGE=desktop-in-docker-base:latest
+ARG BASE_IMAGE=desktop-in-docker:debian-trixie-base-latest
 FROM ${BASE_IMAGE}
 
 USER root

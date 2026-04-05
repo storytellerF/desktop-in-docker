@@ -82,6 +82,25 @@ print_tag_summary() {
     done
 }
 
+print_available_desktops() {
+    echo "Available desktop environments: xfce, lxqt, kde, mate, cinnamon, lxde, gnome, enlightenment"
+}
+
+append_standard_image_tags() {
+    local image_name=$1
+    local tag_prefix=$2
+    local tags_name=$3
+    local reasons_name=$4
+
+    append_tag_with_reason "$tags_name" "$reasons_name" "always" "${image_name}:${tag_prefix}-${CURRENT_DATE}"
+    if [ "$TAG_LATEST" = true ]; then
+        append_tag_with_reason "$tags_name" "$reasons_name" "--latest specified" "${image_name}:${tag_prefix}-latest"
+    fi
+    if [ "$TAG_SNAPSHOT" = true ]; then
+        append_tag_with_reason "$tags_name" "$reasons_name" "--no-snapshot not specified" "${image_name}:${tag_prefix}-snapshot"
+    fi
+}
+
 # Helper to write or update var in file
 update_env_var() {
     local key=$1
@@ -196,25 +215,8 @@ if [ -z "$SYSTEM_VERSION" ]; then
     esac
 fi
 
-# Define tags based on system and version
-TAG_BASE_FULL="${SYSTEM}-${SYSTEM_VERSION}-${DESKTOP_ENV}"
-TAG_BASE_MIN=""
-
-# Minimized tags (omit defaults)
-if [ "$SYSTEM" = "debian" ] && [ "$SYSTEM_VERSION" = "trixie" ]; then
-    # Default system/version, tag can be just desktop-env
-    if [ "$DESKTOP_ENV" = "xfce" ]; then
-        TAG_BASE_MIN=""
-    else
-        TAG_BASE_MIN="${DESKTOP_ENV}"
-    fi
-else
-    # Non-default system OR non-default version
-    TAG_BASE_MIN="${SYSTEM}-${SYSTEM_VERSION}"
-    if [ "$DESKTOP_ENV" != "xfce" ]; then
-        TAG_BASE_MIN="${TAG_BASE_MIN}-${DESKTOP_ENV}"
-    fi
-fi
+BASE_TAG_PREFIX="${SYSTEM}-${SYSTEM_VERSION}-base"
+DESKTOP_TAG_PREFIX="${SYSTEM}-${SYSTEM_VERSION}-${DESKTOP_ENV}"
 
 # If creating env, handle interactive mode
 if [ "$CREATE_ENV" = true ]; then
@@ -254,7 +256,7 @@ esac
 CONTAINER_HOME="/home/${CONTAINER_USER}"
 
 # Prepend Docker Username to Image Name if set
-BASE_IMAGE_NAME="desktop-in-docker-base"
+BASE_IMAGE_NAME="desktop-in-docker"
 if [ -n "$DOCKER_USERNAME" ]; then
     IMAGE_NAME="${DOCKER_USERNAME}/${IMAGE_NAME}"
     BASE_IMAGE_NAME="${DOCKER_USERNAME}/${BASE_IMAGE_NAME}"
@@ -284,6 +286,10 @@ if [ "$PUBLISH" = true ] || [ "$EXECUTE_BUILD" = true ]; then
     if [ -f "dockerfiles/base/${SYSTEM}.Dockerfile" ]; then
         BASE_DOCKERFILE="dockerfiles/base/${SYSTEM}.Dockerfile"
     fi
+    if [ ! -f "$BASE_DOCKERFILE" ]; then
+        echo "Base Dockerfile not found for system '$SYSTEM': $BASE_DOCKERFILE"
+        exit 1
+    fi
 
     # Determine flavor dockerfile
     DOCKERFILE="dockerfiles/${DESKTOP_ENV}/Dockerfile"
@@ -291,108 +297,40 @@ if [ "$PUBLISH" = true ] || [ "$EXECUTE_BUILD" = true ]; then
         DOCKERFILE="dockerfiles/${DESKTOP_ENV}/${SYSTEM}.Dockerfile"
     fi
 
-    if [ -f "$DOCKERFILE" ]; then
-        echo "Building using $DOCKERFILE"
-        
-        # Build base image locally first?
-        # Note: For multi-arch buildx, this might be tricky if base isn't pushed.
-        # But for local builds it's fine.
-        # Generate base image tags (system-version, without desktop env)
-        BASE_SYS_FULL="${SYSTEM}-${SYSTEM_VERSION}"
-        BASE_SYS_MIN=""
-        if ! ([ "$SYSTEM" = "debian" ] && [ "$SYSTEM_VERSION" = "trixie" ]); then
-            BASE_SYS_MIN="${SYSTEM}-${SYSTEM_VERSION}"
-        fi
-
-        BASE_SYS_BASES=("$BASE_SYS_FULL")
-        if [ "$BASE_SYS_MIN" != "$BASE_SYS_FULL" ]; then
-            BASE_SYS_BASES+=("$BASE_SYS_MIN")
-        fi
-
-        BASE_BUILD_TAGS=()
-        BASE_BUILD_TAG_REASONS=()
-        for tb in "${BASE_SYS_BASES[@]}"; do
-            if [ -n "$tb" ]; then
-                append_tag_with_reason "BASE_BUILD_TAGS" "BASE_BUILD_TAG_REASONS" "always" "${BASE_IMAGE_NAME}:${tb}-${CURRENT_DATE}"
-                if [ "$TAG_LATEST" = true ]; then
-                    append_tag_with_reason "BASE_BUILD_TAGS" "BASE_BUILD_TAG_REASONS" "--latest specified" "${BASE_IMAGE_NAME}:${tb}-latest"
-                fi
-                if [ "$TAG_SNAPSHOT" = true ]; then
-                    append_tag_with_reason "BASE_BUILD_TAGS" "BASE_BUILD_TAG_REASONS" "--no-snapshot not specified" "${BASE_IMAGE_NAME}:${tb}-snapshot"
-                fi
-            else
-                append_tag_with_reason "BASE_BUILD_TAGS" "BASE_BUILD_TAG_REASONS" "always, default system+version" "${BASE_IMAGE_NAME}:${CURRENT_DATE}"
-                if [ "$TAG_LATEST" = true ]; then
-                    append_tag_with_reason "BASE_BUILD_TAGS" "BASE_BUILD_TAG_REASONS" "--latest specified, default system+version" "${BASE_IMAGE_NAME}:latest"
-                fi
-                if [ "$TAG_SNAPSHOT" = true ]; then
-                    append_tag_with_reason "BASE_BUILD_TAGS" "BASE_BUILD_TAG_REASONS" "--no-snapshot not specified, default system+version" "${BASE_IMAGE_NAME}:snapshot"
-                fi
-            fi
-        done
-
-        # Reference tag for desktop Dockerfiles to use as FROM
-        BASE_IMAGE_LOCAL_REF="${BASE_IMAGE_NAME}:${SYSTEM}-${SYSTEM_VERSION}-${CURRENT_DATE}"
-        BASE_IMAGE_PUBLISH_REF="${BASE_IMAGE_NAME}:${SYSTEM}-${SYSTEM_VERSION}-${CURRENT_DATE}"
-
-        echo "Building base image from $BASE_DOCKERFILE..."
-        docker build \
-            "${BASE_BUILD_TAGS[@]}" \
-            --build-arg SYSTEM="$SYSTEM" \
-            --build-arg SYSTEM_VERSION="$SYSTEM_VERSION" \
-            --build-arg USERNAME="$CONTAINER_USER" \
-            --build-arg USE_CN_MIRROR="$USE_CN_MIRROR" \
-            -f "$BASE_DOCKERFILE" .
-    else
-        DOCKERFILE="Dockerfile"
-        echo "Building standard version using Dockerfile"
+    if [ ! -f "$DOCKERFILE" ]; then
+        echo "Desktop Dockerfile not found for desktop '$DESKTOP_ENV' on system '$SYSTEM': $DOCKERFILE"
+        print_available_desktops
+        exit 1
     fi
 
-    # Generate all tag variants
-    TAG_BASES=("$TAG_BASE_FULL")
-    if [ "$TAG_BASE_MIN" != "$TAG_BASE_FULL" ]; then
-        TAG_BASES+=("$TAG_BASE_MIN")
-    fi
+    echo "Building using $DOCKERFILE"
+    
+    # Build base image locally first?
+    # Note: For multi-arch buildx, this might be tricky if base isn't pushed.
+    # But for local builds it's fine.
+    BASE_BUILD_TAGS=()
+    BASE_BUILD_TAG_REASONS=()
+    append_standard_image_tags "$BASE_IMAGE_NAME" "$BASE_TAG_PREFIX" "BASE_BUILD_TAGS" "BASE_BUILD_TAG_REASONS"
+
+    # Reference tag for desktop Dockerfiles to use as FROM
+    BASE_IMAGE_LOCAL_REF="${BASE_IMAGE_NAME}:${BASE_TAG_PREFIX}-${CURRENT_DATE}"
+    BASE_IMAGE_PUBLISH_REF="${BASE_IMAGE_NAME}:${BASE_TAG_PREFIX}-${CURRENT_DATE}"
+
+    echo "Building base image from $BASE_DOCKERFILE..."
+    docker build \
+        "${BASE_BUILD_TAGS[@]}" \
+        --build-arg SYSTEM="$SYSTEM" \
+        --build-arg SYSTEM_VERSION="$SYSTEM_VERSION" \
+        --build-arg USERNAME="$CONTAINER_USER" \
+        --build-arg USE_CN_MIRROR="$USE_CN_MIRROR" \
+        -f "$BASE_DOCKERFILE" .
 
     BUILD_TAGS=()
     BUILD_TAG_REASONS=()
-    for tb in "${TAG_BASES[@]}"; do
-        if [ -n "$tb" ]; then
-            append_tag_with_reason "BUILD_TAGS" "BUILD_TAG_REASONS" "always" "${IMAGE_NAME}:${tb}-${CURRENT_DATE}"
-            if [ "$TAG_LATEST" = true ]; then
-                append_tag_with_reason "BUILD_TAGS" "BUILD_TAG_REASONS" "--latest specified" "${IMAGE_NAME}:${tb}-latest"
-            fi
-            if [ "$TAG_SNAPSHOT" = true ]; then
-                append_tag_with_reason "BUILD_TAGS" "BUILD_TAG_REASONS" "--no-snapshot not specified" "${IMAGE_NAME}:${tb}-snapshot"
-            fi
-        else
-            append_tag_with_reason "BUILD_TAGS" "BUILD_TAG_REASONS" "always, default system+version+desktop" "${IMAGE_NAME}:${CURRENT_DATE}"
-            if [ "$TAG_LATEST" = true ]; then
-                append_tag_with_reason "BUILD_TAGS" "BUILD_TAG_REASONS" "--latest specified, default system+version+desktop" "${IMAGE_NAME}:latest"
-            fi
-            if [ "$TAG_SNAPSHOT" = true ]; then
-                append_tag_with_reason "BUILD_TAGS" "BUILD_TAG_REASONS" "--no-snapshot not specified, default system+version+desktop" "${IMAGE_NAME}:snapshot"
-            fi
-        fi
-    done
+    append_standard_image_tags "$IMAGE_NAME" "$DESKTOP_TAG_PREFIX" "BUILD_TAGS" "BUILD_TAG_REASONS"
 
-    BUILD_TAGS_FLAVOR=()
-    BUILD_TAGS_FLAVOR_REASONS=()
-    for tag_option in "${BUILD_TAGS[@]}"; do
-        if [[ "$tag_option" == "-t" ]]; then
-            continue
-        fi
-
-        if [[ "$tag_option" == *":"* ]]; then
-            image_part="${tag_option%:*}"
-            tag_part="${tag_option#*:}"
-            modified_tag="${image_part}:${tag_part}"
-            BUILD_TAGS_FLAVOR+=("-t" "$modified_tag")
-            BUILD_TAGS_FLAVOR_REASONS+=("${BUILD_TAG_REASONS[${#BUILD_TAGS_FLAVOR_REASONS[@]}]}")
-        else
-            BUILD_TAGS_FLAVOR+=("$tag_option")
-        fi
-    done
+    BUILD_TAGS_FLAVOR=("${BUILD_TAGS[@]}")
+    BUILD_TAGS_FLAVOR_REASONS=("${BUILD_TAG_REASONS[@]}")
 fi
 
 if [ "$PUBLISH" = true ]; then
@@ -400,28 +338,9 @@ if [ "$PUBLISH" = true ]; then
 
     # Push base image
     echo "Pushing base image..."
-    # Build publish tags for base (exclude the local-only desktop-in-docker-base:latest)
     BASE_PUBLISH_TAGS=()
     BASE_PUBLISH_TAG_REASONS=()
-    for tb in "${BASE_SYS_BASES[@]}"; do
-        if [ -n "$tb" ]; then
-            append_tag_with_reason "BASE_PUBLISH_TAGS" "BASE_PUBLISH_TAG_REASONS" "always" "${BASE_IMAGE_NAME}:${tb}-${CURRENT_DATE}"
-            if [ "$TAG_LATEST" = true ]; then
-                append_tag_with_reason "BASE_PUBLISH_TAGS" "BASE_PUBLISH_TAG_REASONS" "--latest specified" "${BASE_IMAGE_NAME}:${tb}-latest"
-            fi
-            if [ "$TAG_SNAPSHOT" = true ]; then
-                append_tag_with_reason "BASE_PUBLISH_TAGS" "BASE_PUBLISH_TAG_REASONS" "--no-snapshot not specified" "${BASE_IMAGE_NAME}:${tb}-snapshot"
-            fi
-        else
-            append_tag_with_reason "BASE_PUBLISH_TAGS" "BASE_PUBLISH_TAG_REASONS" "always, default system+version" "${BASE_IMAGE_NAME}:${CURRENT_DATE}"
-            if [ "$TAG_LATEST" = true ]; then
-                append_tag_with_reason "BASE_PUBLISH_TAGS" "BASE_PUBLISH_TAG_REASONS" "--latest specified, default system+version" "${BASE_IMAGE_NAME}:latest"
-            fi
-            if [ "$TAG_SNAPSHOT" = true ]; then
-                append_tag_with_reason "BASE_PUBLISH_TAGS" "BASE_PUBLISH_TAG_REASONS" "--no-snapshot not specified, default system+version" "${BASE_IMAGE_NAME}:snapshot"
-            fi
-        fi
-    done
+    append_standard_image_tags "$BASE_IMAGE_NAME" "$BASE_TAG_PREFIX" "BASE_PUBLISH_TAGS" "BASE_PUBLISH_TAG_REASONS"
 
     docker buildx build \
         --platform linux/amd64,linux/arm64 \
@@ -473,14 +392,13 @@ if [ "$START_CONTAINER" = true ]; then
     echo ""
 
     # Determine IMAGE_TAG for docker compose
-    if [ -n "$TAG_BASE_MIN" ]; then
-        IMAGE_TAG="${TAG_BASE_MIN}-snapshot"
-    elif [ -n "$TAG_BASE_FULL" ]; then
-        IMAGE_TAG="${TAG_BASE_FULL}-snapshot"
+    if [ "$TAG_LATEST" = true ]; then
+        IMAGE_TAG="${DESKTOP_TAG_PREFIX}-latest"
+    elif [ "$TAG_SNAPSHOT" = true ]; then
+        IMAGE_TAG="${DESKTOP_TAG_PREFIX}-snapshot"
     else
-        IMAGE_TAG="snapshot"
+        IMAGE_TAG="${DESKTOP_TAG_PREFIX}-${CURRENT_DATE}"
     fi
-    [ "$TAG_LATEST" = true ] && IMAGE_TAG="${IMAGE_TAG%-snapshot}-latest"
 
     # Export variables for docker compose
     export DOCKER_USERNAME="${DOCKER_USERNAME:-storytellerf}"
