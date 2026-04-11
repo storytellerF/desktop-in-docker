@@ -51,13 +51,6 @@ echo "Starting VNC server with geometry ${geometry} and depth ${depth}..."
 # even if ports are mapped, as the mapping goes to the container's IP on eth0.
 vncserver :1 -geometry "$geometry" -depth "$depth" -localhost no $VNC_SECURITY_ARGS
 
-# Tail logs in background and wait
-vnc_log=$(ls -t "$TIGERVNC_CONF_DIR"/*.log 2>/dev/null | head -n 1)
-if [ -f "$vnc_log" ]; then
-    echo "Tailing VNC log: $vnc_log"
-    tail -f "$vnc_log" &
-fi
-
 echo "VNC server is running."
 # wait allows the script to catch signals
 sleep infinity

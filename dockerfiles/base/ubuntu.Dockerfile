@@ -5,9 +5,24 @@ FROM ubuntu:${SYSTEM_VERSION}
 ARG OPENJDK_VERSION
 ARG USE_CN_MIRROR=false
 
-COPY build-scripts/switch-mirror.sh /usr/local/bin/switch-mirror.sh
-RUN chmod +x /usr/local/bin/switch-mirror.sh && \
-    USE_CN_MIRROR="$USE_CN_MIRROR" /usr/local/bin/switch-mirror.sh
+RUN if [ "$USE_CN_MIRROR" = "true" ]; then \
+        apt-get update && \
+        DEBIAN_FRONTEND=noninteractive \
+        apt-get install -y --no-install-recommends --no-install-suggests \
+        curl \
+        ca-certificates \
+        bash && \
+        rm -rf /var/lib/apt/lists/* && \
+        curl -fsSL https://linuxmirrors.cn/main.sh | bash -s -- \
+            --source mirrors.aliyun.com \
+            --protocol https \
+            --use-intranet-source false \
+            --backup false \
+            --upgrade-software false \
+            --clean-cache false \
+            --lang en \
+            --pure-mode; \
+    fi
 
 # Install Dependencies: VNC, Supervisor, noVNC, and other tools
 RUN apt-get update && \
@@ -33,10 +48,16 @@ ARG USERNAME=ubuntu
 ARG USER_UID=1000
 ARG USER_GID=$USER_UID
 
-RUN groupadd --gid $USER_GID $USERNAME \
-    && useradd --uid $USER_UID --gid $USER_GID -m -s /bin/bash $USERNAME \
-    && echo $USERNAME ALL=\(root\) NOPASSWD:ALL > /etc/sudoers.d/$USERNAME \
-    && chmod 0440 /etc/sudoers.d/$USERNAME
+RUN GROUP_NAME="$(awk -F: -v gid="$USER_GID" '$3 == gid { print $1; exit }' /etc/group)" && \
+    if [ -z "$GROUP_NAME" ]; then \
+        groupadd --gid "$USER_GID" "$USERNAME"; \
+        GROUP_NAME="$USERNAME"; \
+    fi && \
+    if ! id -u "$USERNAME" >/dev/null 2>&1; then \
+        useradd --uid "$USER_UID" --gid "$GROUP_NAME" -m -s /bin/bash "$USERNAME"; \
+    fi && \
+    echo "$USERNAME ALL=(root) NOPASSWD:ALL" > "/etc/sudoers.d/$USERNAME" && \
+    chmod 0440 "/etc/sudoers.d/$USERNAME"
 
 USER $USERNAME
 WORKDIR /home/$USERNAME

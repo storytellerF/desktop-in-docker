@@ -5,9 +5,19 @@ FROM alpine:${SYSTEM_VERSION}
 ARG OPENJDK_VERSION
 ARG USE_CN_MIRROR=false
 
-COPY build-scripts/switch-mirror.sh /usr/local/bin/switch-mirror.sh
-RUN chmod +x /usr/local/bin/switch-mirror.sh && \
-    USE_CN_MIRROR="$USE_CN_MIRROR" /usr/local/bin/switch-mirror.sh
+RUN if [ "$USE_CN_MIRROR" = "true" ]; then \
+        apk add --no-cache curl ca-certificates bash && \
+        update-ca-certificates || true && \
+        curl -fsSL https://linuxmirrors.cn/main.sh | bash -s -- \
+            --source mirrors.aliyun.com \
+            --protocol https \
+            --use-intranet-source false \
+            --backup false \
+            --upgrade-software false \
+            --clean-cache false \
+            --lang en \
+            --pure-mode; \
+    fi
 
 # Install Dependencies: VNC, Supervisor, noVNC, and other tools
 # Alpine uses apk and has bash/shadow for user management
@@ -18,7 +28,7 @@ RUN apk add --no-cache \
     xrdb \
     xterm \
     xvfb \
-    py3-websockify \
+    websockify \
     novnc \
     wget \
     unzip \
@@ -39,10 +49,16 @@ ARG USERNAME=alpine
 ARG USER_UID=1000
 ARG USER_GID=$USER_UID
 
-RUN addgroup -g $USER_GID $USERNAME \
-    && adduser -u $USER_UID -G $USERNAME -s /bin/bash -D $USERNAME \
-    && echo "$USERNAME ALL=(root) NOPASSWD:ALL" > /etc/sudoers.d/$USERNAME \
-    && chmod 0440 /etc/sudoers.d/$USERNAME
+RUN GROUP_NAME="$(awk -F: -v gid="$USER_GID" '$3 == gid { print $1; exit }' /etc/group)" && \
+    if [ -z "$GROUP_NAME" ]; then \
+        addgroup -g "$USER_GID" "$USERNAME"; \
+        GROUP_NAME="$USERNAME"; \
+    fi && \
+    if ! id -u "$USERNAME" >/dev/null 2>&1; then \
+        adduser -u "$USER_UID" -G "$GROUP_NAME" -s /bin/bash -D "$USERNAME"; \
+    fi && \
+    echo "$USERNAME ALL=(root) NOPASSWD:ALL" > "/etc/sudoers.d/$USERNAME" && \
+    chmod 0440 "/etc/sudoers.d/$USERNAME"
 
 USER $USERNAME
 WORKDIR /home/$USERNAME
