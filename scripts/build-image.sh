@@ -15,6 +15,7 @@ usage() {
     echo "  -c, --create-env             Create or overwrite the .env file with the specified or default values"
     echo "  -b, --build                  Execute the docker build process"
     echo "  -S, --start                  Start docker compose up --build after building the image"
+    echo "  -T, --stop                   Stop docker compose (runs down; if combined with --start, stops first)"
     echo "  -P, --publish                Build and Push multi-arch images to Docker Hub (requires docker login)"
     echo "  -m, --multi-arch             Enable multi-arch mode (builds/pushes for amd64 and arm64)"
     echo "  -d, --desktop <desktop>      Specify the desktop environment (xfce, lxqt, kde, mate, cinnamon, lxde, gnome, enlightenment) (default: xfce)"
@@ -154,6 +155,7 @@ update_env_var() {
 CREATE_ENV=false
 EXECUTE_BUILD=false
 START_CONTAINER=false
+STOP_CONTAINER=false
 PUBLISH=false
 MULTI_ARCH=false
 CMD_DOCKER_USERNAME=""
@@ -186,6 +188,9 @@ while [[ "$#" -gt 0 ]]; do
             ;;
         -S|--start)
             START_CONTAINER=true
+            ;;
+        -T|--stop)
+            STOP_CONTAINER=true
             ;;
         -P|--publish)
             PUBLISH=true
@@ -439,6 +444,18 @@ elif [ "$EXECUTE_BUILD" = true ]; then
     print_tag_summary "Desktop image created variants:" "BUILD_TAGS_FLAVOR" "BUILD_TAGS_FLAVOR_REASONS"
     echo "Cleaning up dangling images..."
     docker image prune -f
+fi
+
+# Stop compose if requested
+if [ "$STOP_CONTAINER" = true ]; then
+    COMPOSE_FILES="-f docker-compose.yml"
+    echo "Stopping docker compose..."
+    if docker compose $COMPOSE_FILES down; then
+        echo "Docker compose stopped successfully."
+    else
+        echo "Failed to stop docker compose."
+        exit 1
+    fi
 fi
 
 # Start container if requested
