@@ -10,16 +10,28 @@ depth=${VNC_DEPTH:-24}
 mkdir -p ~/.config
 TIGERVNC_CONF_DIR="$HOME/.config/tigervnc"
 mkdir -p "$TIGERVNC_CONF_DIR"
+TIGERVNC_CONFIG_FILE="$TIGERVNC_CONF_DIR/config"
 
 if [ -n "$VNC_PASSWD" ]; then
   echo "Setting VNC password."
   # TigerVNC vncpasswd -f reads from stdin and writes to stdout
   echo "$VNC_PASSWD" | vncpasswd -f > "$TIGERVNC_CONF_DIR/passwd"
   chmod 600 "$TIGERVNC_CONF_DIR/passwd"
-  VNC_SECURITY_ARGS="-SecurityTypes VncAuth -rfbauth $TIGERVNC_CONF_DIR/passwd"
+  VNC_SECURITY_TYPES="VncAuth"
 else
   echo "VNC_PASSWD not set. VNC will start without a password."
-  VNC_SECURITY_ARGS="-SecurityTypes None"
+  VNC_SECURITY_TYPES="None"
+fi
+
+cat > "$TIGERVNC_CONFIG_FILE" <<EOF
+geometry=${geometry}
+depth=${depth}
+localhost=no
+securitytypes=${VNC_SECURITY_TYPES}
+EOF
+
+if [ -n "$VNC_PASSWD" ]; then
+  echo "rfbauth=$TIGERVNC_CONF_DIR/passwd" >> "$TIGERVNC_CONFIG_FILE"
 fi
 
 # Initialize .Xauthority file to avoid xauth warnings
@@ -47,9 +59,9 @@ rm -f /tmp/.X1-lock /tmp/.X11-unix/X1
 
 # Start VNC server
 echo "Starting VNC server with geometry ${geometry} and depth ${depth}..."
-# -localhost no is required to allow connections from outside the container
-# even if ports are mapped, as the mapping goes to the container's IP on eth0.
-vncserver :1 -geometry "$geometry" -depth "$depth" -localhost no $VNC_SECURITY_ARGS
+# Use the TigerVNC config file for portability. Alpine/Arch variants only
+# accept the display number as a CLI argument and read the rest from config.
+vncserver :1
 
 echo "VNC server is running."
 # wait allows the script to catch signals
