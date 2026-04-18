@@ -13,7 +13,7 @@ RUN if [ "$USE_CN_MIRROR" = "true" ]; then \
         ca-certificates \
         bash && \
         rm -rf /var/lib/apt/lists/* && \
-        curl -fsSL https://linuxmirrors.cn/main.sh | bash -s -- \
+        bash -o pipefail -c 'curl -fsSL https://linuxmirrors.cn/main.sh | bash -s -- \
             --source mirrors.aliyun.com \
             --protocol https \
             --use-intranet-source false \

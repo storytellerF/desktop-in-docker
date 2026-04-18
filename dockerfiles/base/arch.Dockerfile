@@ -7,19 +7,19 @@ ARG OPENJDK_VERSION
 ARG USE_CN_MIRROR=false
 
 RUN if [ "$USE_CN_MIRROR" = "true" ]; then \
-        pacman-key --init && \
-        pacman-key --populate archlinux && \
-        pacman -Sy --noconfirm --needed curl ca-certificates bash && \
-        pacman -Scc --noconfirm && \
-        curl -fsSL https://linuxmirrors.cn/main.sh | bash -s -- \
-            --source mirrors.aliyun.com \
-            --protocol https \
-            --use-intranet-source false \
-            --backup false \
-            --upgrade-software false \
-            --clean-cache false \
-            --lang en \
-            --pure-mode; \
+    pacman-key --init && \
+    pacman-key --populate archlinux && \
+    pacman -Sy --noconfirm --needed curl ca-certificates bash && \
+    pacman -Scc --noconfirm && \
+    bash -o pipefail -c 'curl -fsSL https://linuxmirrors.cn/main.sh | bash -s -- \
+        --source mirrors.aliyun.com \
+        --protocol https \
+        --use-intranet-source false \
+        --backup false \
+        --upgrade-software false \
+        --clean-cache false \
+        --lang en \
+        --pure-mode'; \
     fi
 
 # Initialize pacman keyring first (required in Docker), then install dependencies

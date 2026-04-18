@@ -8,7 +8,7 @@ ARG USE_CN_MIRROR=false
 RUN if [ "$USE_CN_MIRROR" = "true" ]; then \
         apk add --no-cache curl ca-certificates bash && \
         update-ca-certificates || true && \
-        curl -fsSL https://linuxmirrors.cn/main.sh | bash -s -- \
+        bash -o pipefail -c 'curl -fsSL https://linuxmirrors.cn/main.sh | bash -s -- \
             --source mirrors.aliyun.com \
             --protocol https \
             --use-intranet-source false \
@@ -16,7 +16,7 @@ RUN if [ "$USE_CN_MIRROR" = "true" ]; then \
             --upgrade-software false \
             --clean-cache false \
             --lang en \
-            --pure-mode; \
+            --pure-mode'; \
     fi
 
 # Install Dependencies: VNC, Supervisor, noVNC, and other tools
