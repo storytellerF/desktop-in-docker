@@ -3,9 +3,9 @@ ARG SYSTEM_VERSION=latest
 FROM alpine:${SYSTEM_VERSION}
 
 ARG OPENJDK_VERSION
-ARG USE_CN_MIRROR=false
+ARG TIMEZONE=UTC
 
-RUN if [ "$USE_CN_MIRROR" = "true" ]; then \
+RUN if [ "$TIMEZONE" = "Asia/Shanghai" ] || [ "$TIMEZONE" = "Asia/Chongqing" ] || [ "$TIMEZONE" = "Asia/Harbin" ] || [ "$TIMEZONE" = "Asia/Urumqi" ] || [ "$TIMEZONE" = "PRC" ]; then \
         apk add --no-cache curl ca-certificates bash && \
         update-ca-certificates || true && \
         bash -o pipefail -c 'curl -fsSL https://linuxmirrors.cn/main.sh | bash -s -- \
@@ -18,6 +18,12 @@ RUN if [ "$USE_CN_MIRROR" = "true" ]; then \
             --lang en \
             --pure-mode'; \
     fi
+
+# Set timezone for Alpine
+RUN apk add --no-cache tzdata && \
+    cp /usr/share/zoneinfo/$TIMEZONE /etc/localtime && \
+    echo $TIMEZONE > /etc/timezone && \
+    apk del tzdata
 
 # Install Dependencies: VNC, Supervisor, noVNC, and other tools
 # Alpine uses apk and has bash/shadow for user management

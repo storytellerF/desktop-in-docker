@@ -4,9 +4,9 @@ ARG SYSTEM_VERSION=latest
 FROM archlinux:${SYSTEM_VERSION}
 
 ARG OPENJDK_VERSION
-ARG USE_CN_MIRROR=false
+ARG TIMEZONE=UTC
 
-RUN if [ "$USE_CN_MIRROR" = "true" ]; then \
+RUN if [ "$TIMEZONE" = "Asia/Shanghai" ] || [ "$TIMEZONE" = "Asia/Chongqing" ] || [ "$TIMEZONE" = "Asia/Harbin" ] || [ "$TIMEZONE" = "Asia/Urumqi" ] || [ "$TIMEZONE" = "PRC" ]; then \
     pacman-key --init && \
     pacman-key --populate archlinux && \
     pacman -Sy --noconfirm --needed curl ca-certificates bash && \
@@ -21,6 +21,9 @@ RUN if [ "$USE_CN_MIRROR" = "true" ]; then \
         --lang en \
         --pure-mode'; \
     fi
+
+# Set timezone
+RUN ln -snf /usr/share/zoneinfo/$TIMEZONE /etc/localtime && echo $TIMEZONE > /etc/timezone
 
 # Initialize pacman keyring first (required in Docker), then install dependencies
 RUN pacman-key --init && \

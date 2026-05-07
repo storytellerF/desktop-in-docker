@@ -2,9 +2,9 @@
 FROM debian:trixie
 
 ARG OPENJDK_VERSION
-ARG USE_CN_MIRROR=false
+ARG TIMEZONE=UTC
 
-RUN if [ "$USE_CN_MIRROR" = "true" ]; then \
+RUN if [ "$TIMEZONE" = "Asia/Shanghai" ] || [ "$TIMEZONE" = "Asia/Chongqing" ] || [ "$TIMEZONE" = "Asia/Harbin" ] || [ "$TIMEZONE" = "Asia/Urumqi" ] || [ "$TIMEZONE" = "PRC" ]; then \
         apt-get update && \
         DEBIAN_FRONTEND=noninteractive \
         apt-get install -y --no-install-recommends --no-install-suggests \
@@ -22,6 +22,9 @@ RUN if [ "$USE_CN_MIRROR" = "true" ]; then \
             --lang en \
             --pure-mode; \
     fi
+
+# Set timezone
+RUN ln -snf /usr/share/zoneinfo/$TIMEZONE /etc/localtime && echo $TIMEZONE > /etc/timezone
 
 # Install Dependencies: VNC, Supervisor, noVNC, and other tools
 RUN apt-get update && \

@@ -329,13 +329,7 @@ if [ "$PUBLISH" = true ] || [ "$EXECUTE_BUILD" = true ]; then
         CURRENT_TZ=$(readlink /etc/localtime 2>/dev/null | sed 's#.*/zoneinfo/##')
     fi
 
-    USE_CN_MIRROR="false"
-    case "$CURRENT_TZ" in
-        Asia/Shanghai|Asia/Chongqing|Asia/Harbin|Asia/Urumqi|PRC)
-            USE_CN_MIRROR="true"
-            ;;
-    esac
-    echo "Detected timezone: ${CURRENT_TZ:-unknown}, USE_CN_MIRROR=$USE_CN_MIRROR"
+    echo "Detected timezone: ${CURRENT_TZ:-unknown}"
 
     # Determine base dockerfile
     BASE_DOCKERFILE="dockerfiles/base/Dockerfile"
@@ -379,7 +373,7 @@ if [ "$PUBLISH" = true ] || [ "$EXECUTE_BUILD" = true ]; then
         --build-arg SYSTEM="$SYSTEM" \
         --build-arg SYSTEM_VERSION="$SYSTEM_VERSION" \
         --build-arg USERNAME="$CONTAINER_USER" \
-        --build-arg USE_CN_MIRROR="$USE_CN_MIRROR" \
+        --build-arg TIMEZONE="$CURRENT_TZ" \
         -f "$BASE_DOCKERFILE" .
 
     BUILD_TAGS=()
@@ -406,7 +400,7 @@ if [ "$PUBLISH" = true ]; then
         --build-arg SYSTEM="$SYSTEM" \
         --build-arg SYSTEM_VERSION="$SYSTEM_VERSION" \
         --build-arg USERNAME="$CONTAINER_USER" \
-        --build-arg USE_CN_MIRROR="$USE_CN_MIRROR" \
+        --build-arg TIMEZONE="$CURRENT_TZ" \
         "${BASE_PUBLISH_TAGS[@]}" \
         --push \
         -f "$BASE_DOCKERFILE" .

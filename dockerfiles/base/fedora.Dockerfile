@@ -3,9 +3,9 @@ ARG SYSTEM_VERSION=41
 FROM fedora:${SYSTEM_VERSION}
 
 ARG OPENJDK_VERSION
-ARG USE_CN_MIRROR=false
+ARG TIMEZONE=UTC
 
-RUN if [ "$USE_CN_MIRROR" = "true" ]; then \
+RUN if [ "$TIMEZONE" = "Asia/Shanghai" ] || [ "$TIMEZONE" = "Asia/Chongqing" ] || [ "$TIMEZONE" = "Asia/Harbin" ] || [ "$TIMEZONE" = "Asia/Urumqi" ] || [ "$TIMEZONE" = "PRC" ]; then \
         dnf install -y curl ca-certificates bash && \
         dnf clean all && \
         bash -o pipefail -c 'curl -fsSL https://linuxmirrors.cn/main.sh | bash -s -- \
@@ -18,6 +18,9 @@ RUN if [ "$USE_CN_MIRROR" = "true" ]; then \
             --lang en \
             --pure-mode'; \
     fi
+
+# Set timezone
+RUN ln -snf /usr/share/zoneinfo/$TIMEZONE /etc/localtime && echo $TIMEZONE > /etc/timezone
 
 # Install Dependencies: VNC, Supervisor, noVNC, and other tools
 RUN dnf install -y \
