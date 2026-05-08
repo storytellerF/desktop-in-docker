@@ -19,5 +19,5 @@ WORKDIR /home/$USERNAME
 RUN mkdir -p .config/tigervnc && \
     echo "#!/bin/bash" > .config/tigervnc/xstartup && \
     echo "[ -f \"\$HOME/.Xresources\" ] && xrdb \"\$HOME/.Xresources\"" >> .config/tigervnc/xstartup && \
-    echo "startxfce4" >> .config/tigervnc/xstartup && \
+    echo "exec dbus-run-session startxfce4" >> .config/tigervnc/xstartup && \
     chmod +x .config/tigervnc/xstartup
