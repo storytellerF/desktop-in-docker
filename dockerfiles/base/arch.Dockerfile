@@ -65,13 +65,6 @@ RUN wget -q https://github.com/novnc/noVNC/archive/refs/tags/v1.5.0.tar.gz -O /t
 RUN mkdir -p /usr/share && \
     ln -s /opt/novnc /usr/share/novnc
 
-# Arch's vncserver only accepts a single ":display" arg; all options go into
-# ~/.config/tigervnc/config. Install a wrapper at /usr/local/bin/vncserver
-# (takes PATH priority over /usr/sbin/vncserver) that translates the
-# Debian-style CLI flags used by start-vnc.sh into the config file format.
-COPY arch-scripts/vncserver /usr/local/bin/vncserver
-RUN chmod +x /usr/local/bin/vncserver
-
 # Setup locale
 RUN echo "en_US.UTF-8 UTF-8" >> /etc/locale.gen && \
     locale-gen && \
