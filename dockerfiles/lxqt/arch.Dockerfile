@@ -7,6 +7,9 @@ USER root
 # Install LXQt on Arch Linux
 RUN pacman -Syu --noconfirm && \
     pacman -S --noconfirm --needed \
+    dbus \
+    xorg-server \
+    xterm \
     lxqt \
     xdg-utils \
     xdg-user-dirs \

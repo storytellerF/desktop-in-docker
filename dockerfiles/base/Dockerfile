@@ -11,11 +11,8 @@ ARG TIMEZONE=UTC
 RUN apt-get update && \
     DEBIAN_FRONTEND=noninteractive \
     apt-get install -y --no-install-recommends --no-install-suggests \
-    dbus-x11 \
     supervisor \
     tigervnc-standalone-server tigervnc-common tigervnc-tools \
-    x11-xserver-utils \
-    xfonts-base \
     novnc \
     wget \
     unzip \

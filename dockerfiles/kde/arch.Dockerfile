@@ -7,6 +7,9 @@ USER root
 # Install KDE Plasma on Arch Linux
 RUN pacman -Syu --noconfirm && \
     pacman -S --noconfirm --needed \
+    dbus \
+    xorg-server \
+    xterm \
     plasma-desktop \
     kde-applications-meta \
     xdg-utils \

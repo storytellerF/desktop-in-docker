@@ -7,6 +7,7 @@ USER root
 # Install LXDE on Fedora
 RUN dnf install -y \
     @lxde-desktop-environment \
+    dbus-x11 \
     xdg-utils \
     && dnf clean all
 

@@ -8,6 +8,7 @@ USER root
 RUN dnf install -y \
     enlightenment \
     terminology \
+    dbus-x11 \
     xdg-utils \
     && dnf clean all
 

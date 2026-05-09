@@ -22,6 +22,9 @@ RUN printf 'Package: %s\nPin: release *\nPin-Priority: -1\n\n' \
 RUN apt-get update && \
     DEBIAN_FRONTEND=noninteractive \
     apt-get install -y \
+    dbus-x11 \
+    x11-xserver-utils \
+    xfonts-base \
     xfce4 \
     && rm -rf /var/lib/apt/lists/*
 
@@ -32,4 +35,3 @@ RUN mkdir -p .config/tigervnc && \
     echo "[ -f \"\$HOME/.Xresources\" ] && xrdb \"\$HOME/.Xresources\"" >> .config/tigervnc/xstartup && \
     echo "startxfce4" >> .config/tigervnc/xstartup && \
     chmod +x .config/tigervnc/xstartup
-

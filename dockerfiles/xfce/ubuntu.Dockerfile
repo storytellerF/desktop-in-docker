@@ -4,8 +4,7 @@ FROM ${BASE_IMAGE}
 
 USER root
 # Prevent installation of power-management and screen-lock packages via APT pinning
-RUN if [ -f /usr/bin/apt-get ]; then \
-    printf 'Package: %s\nPin: release *\nPin-Priority: -1\n\n' \
+RUN printf 'Package: %s\nPin: release *\nPin-Priority: -1\n\n' \
     upower \
     power-profiles-daemon \
     xfce4-power-manager \
@@ -17,13 +16,15 @@ RUN if [ -f /usr/bin/apt-get ]; then \
     kscreenlocker-common \
     light-locker \
     xfce4-screensaver \
-    > /etc/apt/preferences.d/no-desktop-extras; \
-    fi
+    > /etc/apt/preferences.d/no-desktop-extras
 
 # Install XFCE-specific packages
 RUN apt-get update && \
     DEBIAN_FRONTEND=noninteractive \
     apt-get install -y \
+    dbus-x11 \
+    x11-xserver-utils \
+    xfonts-base \
     xfce4 \
     && rm -rf /var/lib/apt/lists/*
 

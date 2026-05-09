@@ -11,6 +11,8 @@ RUN apk add --no-cache \
     xfce4-terminal \
     xfce4-whiskermenu-plugin \
     dbus-x11 \
+    dbus \
+    xrdb \
     adwaita-icon-theme \
     gvfs \
     thunar-volman

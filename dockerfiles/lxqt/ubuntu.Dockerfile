@@ -7,6 +7,9 @@ USER root
 RUN apt-get update && \
     DEBIAN_FRONTEND=noninteractive \
     apt-get install -y \
+    dbus-x11 \
+    x11-xserver-utils \
+    xfonts-base \
     lxqt-core \
     lxqt-panel \
     lxqt-session \

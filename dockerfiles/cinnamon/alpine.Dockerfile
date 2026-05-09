@@ -10,6 +10,9 @@ RUN echo "@edge https://dl-cdn.alpinelinux.org/alpine/edge/community" >> /etc/ap
     apk add --no-cache \
     cinnamon@edge \
     nemo@edge \
+    dbus-x11 \
+    dbus \
+    xrdb \
     xdg-utils
 
 ARG USERNAME=alpine

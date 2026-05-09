@@ -13,10 +13,7 @@ RUN pacman-key --init && \
     pacman-key --populate archlinux && \
     pacman -Syu --noconfirm && \
     pacman -S --noconfirm --needed \
-    dbus \
     tigervnc \
-    xorg-server \
-    xterm \
     python \
     python-pip \
     wget \

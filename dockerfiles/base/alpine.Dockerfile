@@ -16,12 +16,8 @@ RUN apk add --no-cache tzdata && \
 # Install Dependencies: VNC, Supervisor, noVNC, and other tools
 # Alpine uses apk and has bash/shadow for user management
 RUN apk add --no-cache \
-    dbus \
     supervisor \
     tigervnc \
-    xrdb \
-    xterm \
-    xvfb \
     websockify \
     novnc \
     wget \
@@ -31,8 +27,7 @@ RUN apk add --no-cache \
     bash \
     shadow \
     coreutils \
-    findutils \
-    procps
+    findutils
 
 # Setup locale (Alpine uses musl, limited locale support)
 ENV LANG=en_US.UTF-8

@@ -7,6 +7,7 @@ USER root
 # Install XFCE on Fedora
 RUN dnf install -y \
     @xfce-desktop-environment \
+    dbus-x11 \
     xdg-utils \
     && dnf clean all
 

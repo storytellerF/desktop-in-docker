@@ -7,6 +7,9 @@ USER root
 # Install XFCE on Arch Linux via pacman
 RUN pacman -Syu --noconfirm && \
     pacman -S --noconfirm --needed \
+    dbus \
+    xorg-server \
+    xterm \
     xfce4 \
     xfce4-goodies \
     && pacman -Scc --noconfirm

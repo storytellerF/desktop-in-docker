@@ -7,6 +7,7 @@ USER root
 # Install LXQt on Fedora
 RUN dnf install -y \
     @lxqt-desktop-environment \
+    dbus-x11 \
     xdg-utils \
     && dnf clean all
 

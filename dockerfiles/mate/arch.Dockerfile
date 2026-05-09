@@ -7,6 +7,9 @@ USER root
 # Install MATE on Arch Linux
 RUN pacman -Syu --noconfirm && \
     pacman -S --noconfirm --needed \
+    dbus \
+    xorg-server \
+    xterm \
     mate \
     mate-extra \
     xdg-utils \

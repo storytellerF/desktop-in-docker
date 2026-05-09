@@ -7,6 +7,9 @@ USER root
 # Install GNOME on Arch Linux
 RUN pacman -Syu --noconfirm && \
     pacman -S --noconfirm --needed \
+    dbus \
+    xorg-server \
+    xterm \
     gnome \
     gnome-extra \
     xdg-utils \

@@ -7,6 +7,9 @@ USER root
 # Install LXQt on Alpine Linux
 RUN apk add --no-cache \
     lxqt \
+    dbus-x11 \
+    dbus \
+    xrdb \
     xdg-utils \
     xdg-user-dirs
 

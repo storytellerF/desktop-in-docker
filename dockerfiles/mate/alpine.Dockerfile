@@ -9,6 +9,8 @@ RUN apk add --no-cache \
     mate-desktop-environment \
     mate-terminal \
     dbus-x11 \
+    dbus \
+    xrdb \
     xdg-utils
 
 ARG USERNAME=alpine

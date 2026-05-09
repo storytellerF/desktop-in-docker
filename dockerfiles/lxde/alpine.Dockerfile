@@ -13,7 +13,9 @@ RUN apk add --no-cache \
     pcmanfm \
     openbox \
     xdg-utils \
-    dbus-x11
+    dbus-x11 \
+    dbus \
+    xrdb
 
 ARG USERNAME=alpine
 USER $USERNAME

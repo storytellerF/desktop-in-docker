@@ -7,6 +7,7 @@ USER root
 # Install GNOME on Fedora
 RUN dnf install -y \
     @gnome-desktop-environment \
+    dbus-x11 \
     xdg-utils \
     && dnf clean all
 

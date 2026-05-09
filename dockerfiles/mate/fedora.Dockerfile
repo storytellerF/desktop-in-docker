@@ -7,6 +7,7 @@ USER root
 # Install MATE on Fedora
 RUN dnf install -y \
     @mate-desktop-environment \
+    dbus-x11 \
     xdg-utils \
     && dnf clean all
 

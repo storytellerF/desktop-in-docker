@@ -23,6 +23,9 @@ RUN printf 'Package: %s\nPin: release *\nPin-Priority: -1\n\n' \
 RUN apt-get update && \
     DEBIAN_FRONTEND=noninteractive \
     apt-get install -y \
+    dbus-x11 \
+    x11-xserver-utils \
+    xfonts-base \
     lxqt \
     && rm -rf /var/lib/apt/lists/*
 

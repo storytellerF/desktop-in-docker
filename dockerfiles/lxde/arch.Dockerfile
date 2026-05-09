@@ -7,6 +7,9 @@ USER root
 # Install LXDE on Arch Linux
 RUN pacman -Syu --noconfirm && \
     pacman -S --noconfirm --needed \
+    dbus \
+    xorg-server \
+    xterm \
     lxde \
     xdg-utils \
     && pacman -Scc --noconfirm

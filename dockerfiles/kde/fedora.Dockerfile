@@ -7,6 +7,7 @@ USER root
 # Install KDE Plasma on Fedora
 RUN dnf install -y \
     @kde-desktop-environment \
+    dbus-x11 \
     xdg-utils \
     && dnf clean all
 

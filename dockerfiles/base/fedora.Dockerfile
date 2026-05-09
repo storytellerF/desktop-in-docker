@@ -9,7 +9,6 @@ ARG TIMEZONE=UTC
 
 # Install Dependencies: VNC, Supervisor, noVNC, and other tools
 RUN dnf install -y \
-    dbus-x11 \
     supervisor \
     tigervnc-server \
     novnc \

@@ -7,6 +7,9 @@ USER root
 # Install Cinnamon on Arch Linux (available in community repo)
 RUN pacman -Syu --noconfirm && \
     pacman -S --noconfirm --needed \
+    dbus \
+    xorg-server \
+    xterm \
     cinnamon \
     xdg-utils \
     nemo \

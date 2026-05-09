@@ -8,6 +8,9 @@ USER root
 RUN apk add --no-cache \
     enlightenment \
     terminology \
+    dbus-x11 \
+    dbus \
+    xrdb \
     xdg-utils
 
 ARG USERNAME=alpine

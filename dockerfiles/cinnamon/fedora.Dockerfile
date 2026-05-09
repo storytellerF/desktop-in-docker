@@ -7,6 +7,7 @@ USER root
 # Install Cinnamon on Fedora
 RUN dnf install -y \
     cinnamon \
+    dbus-x11 \
     xdg-utils \
     nemo \
     && dnf clean all

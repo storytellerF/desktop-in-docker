@@ -9,6 +9,8 @@ RUN apk add --no-cache \
     gnome \
     gnome-apps-extra \
     dbus-x11 \
+    dbus \
+    xrdb \
     xdg-utils
 
 ARG USERNAME=alpine
