@@ -1,23 +1,11 @@
 # Base Image for Alpine Linux
 ARG SYSTEM_VERSION=latest
-FROM alpine:${SYSTEM_VERSION}
+ARG BASE_FROM_IMAGE=alpine:${SYSTEM_VERSION}
+FROM ${BASE_FROM_IMAGE}
 
+ARG SYSTEM_VERSION
 ARG OPENJDK_VERSION
 ARG TIMEZONE=UTC
-
-RUN if [ "$TIMEZONE" = "Asia/Shanghai" ] || [ "$TIMEZONE" = "Asia/Chongqing" ] || [ "$TIMEZONE" = "Asia/Harbin" ] || [ "$TIMEZONE" = "Asia/Urumqi" ] || [ "$TIMEZONE" = "PRC" ]; then \
-        apk add --no-cache curl ca-certificates bash && \
-        update-ca-certificates || true && \
-        bash -o pipefail -c 'curl -fsSL https://linuxmirrors.cn/main.sh | bash -s -- \
-            --source mirrors.aliyun.com \
-            --protocol https \
-            --use-intranet-source false \
-            --backup false \
-            --upgrade-software false \
-            --clean-cache false \
-            --lang en \
-            --pure-mode'; \
-    fi
 
 # Set timezone for Alpine
 RUN apk add --no-cache tzdata && \
@@ -65,29 +53,3 @@ RUN GROUP_NAME="$(awk -F: -v gid="$USER_GID" '$3 == gid { print $1; exit }' /etc
     fi && \
     echo "$USERNAME ALL=(root) NOPASSWD:ALL" > "/etc/sudoers.d/$USERNAME" && \
     chmod 0440 "/etc/sudoers.d/$USERNAME"
-
-USER $USERNAME
-WORKDIR /home/$USERNAME
-
-# Copy Scripts
-COPY --chown=${USER_UID}:${USER_GID} base-scripts ./bin
-RUN chmod +x ./bin/*.sh
-
-RUN SNIPPET="export PROMPT_COMMAND='history -a' && export HISTFILE=/home/${USERNAME}/.desktop-in-docker/.bash_history" \
-    && echo "$SNIPPET" >> ~/.bashrc
-
-# supervisor sock 是保存到run 目录中的
-RUN mkdir -p log/supervisor run
-
-# Copy supervisor configuration
-COPY --chown=${USER_UID}:${USER_GID} supervisord.conf ./supervisor/supervisord.conf
-
-# 主要用于supervisor
-ENV SUPERVISOR_USER=$USERNAME
-
-# Expose Ports:
-# 6080: noVNC Web Interface
-# 5901: VNC Server (for display :1)
-EXPOSE 6080 5901
-
-ENTRYPOINT ["sh", "-c", "$HOME/bin/entrypoint.sh"]

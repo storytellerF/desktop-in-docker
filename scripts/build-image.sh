@@ -330,6 +330,32 @@ if [ "$PUBLISH" = true ] || [ "$EXECUTE_BUILD" = true ]; then
     fi
 
     echo "Detected timezone: ${CURRENT_TZ:-unknown}"
+    ENABLE_CN_MIRROR=false
+    case "$CURRENT_TZ" in
+        Asia/Shanghai|Asia/Chongqing|Asia/Harbin|Asia/Urumqi|PRC) ENABLE_CN_MIRROR=true ;;
+    esac
+
+    EFFECTIVE_BASE_TAG_PREFIX="$BASE_TAG_PREFIX"
+    EFFECTIVE_SHORT_BASE_TAG_PREFIX="$SHORT_BASE_TAG_PREFIX"
+    EFFECTIVE_DESKTOP_TAG_PREFIX="$DESKTOP_TAG_PREFIX"
+    EFFECTIVE_SHORT_DESKTOP_TAG_PREFIX="$SHORT_DESKTOP_TAG_PREFIX"
+
+    if [ "$ENABLE_CN_MIRROR" = true ]; then
+        CN_TAG_PREFIX="${SYSTEM}-${SYSTEM_VERSION}-cn"
+        SHORT_CN_TAG_PREFIX="$CN_TAG_PREFIX"
+        if is_default_system_version; then
+            SHORT_CN_TAG_PREFIX="cn"
+        fi
+
+        EFFECTIVE_BASE_TAG_PREFIX="${BASE_TAG_PREFIX}-cn"
+        EFFECTIVE_SHORT_BASE_TAG_PREFIX="${SHORT_BASE_TAG_PREFIX}-cn"
+        EFFECTIVE_DESKTOP_TAG_PREFIX="${DESKTOP_TAG_PREFIX}-cn"
+        if [ -z "$SHORT_DESKTOP_TAG_PREFIX" ]; then
+            EFFECTIVE_SHORT_DESKTOP_TAG_PREFIX="cn"
+        else
+            EFFECTIVE_SHORT_DESKTOP_TAG_PREFIX="${SHORT_DESKTOP_TAG_PREFIX}-cn"
+        fi
+    fi
 
     # Determine base dockerfile
     BASE_DOCKERFILE="dockerfiles/base/Dockerfile"
@@ -340,6 +366,30 @@ if [ "$PUBLISH" = true ] || [ "$EXECUTE_BUILD" = true ]; then
         echo "Base Dockerfile not found for system '$SYSTEM': $BASE_DOCKERFILE"
         exit 1
     fi
+
+    # Merge base dockerfile with user-config.dockerfrag
+    USER_CONFIG_FILE="user-config.dockerfrag"
+    BUILD_DIR="build"
+    MERGED_DOCKERFILE="${BUILD_DIR}/${SYSTEM}.Dockerfile"
+    
+    if [ ! -f "$USER_CONFIG_FILE" ]; then
+        echo "User config file not found: $USER_CONFIG_FILE"
+        exit 1
+    fi
+    
+    echo "Merging Dockerfile into $MERGED_DOCKERFILE..."
+    mkdir -p "$BUILD_DIR"
+    > "$MERGED_DOCKERFILE"
+    echo "# Base system configuration - $(date)" >> "$MERGED_DOCKERFILE"
+    echo "# Source: $BASE_DOCKERFILE" >> "$MERGED_DOCKERFILE"
+    cat "$BASE_DOCKERFILE" >> "$MERGED_DOCKERFILE"
+    echo "" >> "$MERGED_DOCKERFILE"
+    echo "# User configuration - $(date)" >> "$MERGED_DOCKERFILE"
+    echo "# Source: $USER_CONFIG_FILE" >> "$MERGED_DOCKERFILE"
+    cat "$USER_CONFIG_FILE" >> "$MERGED_DOCKERFILE"
+    
+    # Use the merged dockerfile for building base image
+    BASE_DOCKERFILE="$MERGED_DOCKERFILE"
 
     # Determine flavor dockerfile
     DOCKERFILE="dockerfiles/${DESKTOP_ENV}/Dockerfile"
@@ -360,16 +410,43 @@ if [ "$PUBLISH" = true ] || [ "$EXECUTE_BUILD" = true ]; then
     # But for local builds it's fine.
     BASE_BUILD_TAGS=()
     BASE_BUILD_TAG_REASONS=()
-    append_standard_image_tags "$BASE_IMAGE_NAME" "$BASE_TAG_PREFIX" "BASE_BUILD_TAGS" "BASE_BUILD_TAG_REASONS"
-    append_short_image_tags "$BASE_IMAGE_NAME" "$BASE_TAG_PREFIX" "$SHORT_BASE_TAG_PREFIX" "default system-version omitted" "BASE_BUILD_TAGS" "BASE_BUILD_TAG_REASONS"
+    append_standard_image_tags "$BASE_IMAGE_NAME" "$EFFECTIVE_BASE_TAG_PREFIX" "BASE_BUILD_TAGS" "BASE_BUILD_TAG_REASONS"
+    append_short_image_tags "$BASE_IMAGE_NAME" "$EFFECTIVE_BASE_TAG_PREFIX" "$EFFECTIVE_SHORT_BASE_TAG_PREFIX" "default system-version omitted" "BASE_BUILD_TAGS" "BASE_BUILD_TAG_REASONS"
 
     # Reference tag for desktop Dockerfiles to use as FROM
-    BASE_IMAGE_LOCAL_REF="${BASE_IMAGE_NAME}:${BASE_TAG_PREFIX}-${CURRENT_DATE}"
-    BASE_IMAGE_PUBLISH_REF="${BASE_IMAGE_NAME}:${BASE_TAG_PREFIX}-${CURRENT_DATE}"
+    BASE_IMAGE_LOCAL_REF="${BASE_IMAGE_NAME}:${EFFECTIVE_BASE_TAG_PREFIX}-${CURRENT_DATE}"
+    BASE_IMAGE_PUBLISH_REF="${BASE_IMAGE_NAME}:${EFFECTIVE_BASE_TAG_PREFIX}-${CURRENT_DATE}"
+
+    BASE_FROM_IMAGE_ARG=()
+    if [ "$ENABLE_CN_MIRROR" = true ]; then
+        CN_DOCKERFILE="dockerfiles/base/cn/${SYSTEM}_cn.Dockerfile"
+        if [ ! -f "$CN_DOCKERFILE" ]; then
+            echo "CN base Dockerfile not found for system '$SYSTEM': $CN_DOCKERFILE"
+            exit 1
+        fi
+
+        CN_BUILD_TAGS=()
+        CN_BUILD_TAG_REASONS=()
+        append_standard_image_tags "$BASE_IMAGE_NAME" "$CN_TAG_PREFIX" "CN_BUILD_TAGS" "CN_BUILD_TAG_REASONS"
+        append_short_image_tags "$BASE_IMAGE_NAME" "$CN_TAG_PREFIX" "$SHORT_CN_TAG_PREFIX" "default system-version omitted" "CN_BUILD_TAGS" "CN_BUILD_TAG_REASONS"
+
+        CN_IMAGE_LOCAL_REF="${BASE_IMAGE_NAME}:${CN_TAG_PREFIX}-${CURRENT_DATE}"
+        CN_IMAGE_PUBLISH_REF="${BASE_IMAGE_NAME}:${CN_TAG_PREFIX}-${CURRENT_DATE}"
+
+        echo "Building CN base image from $CN_DOCKERFILE..."
+        docker build \
+            "${CN_BUILD_TAGS[@]}" \
+            --build-arg SYSTEM="$SYSTEM" \
+            --build-arg SYSTEM_VERSION="$SYSTEM_VERSION" \
+            -f "$CN_DOCKERFILE" .
+
+        BASE_FROM_IMAGE_ARG=(--build-arg "BASE_FROM_IMAGE=${CN_IMAGE_LOCAL_REF}")
+    fi
 
     echo "Building base image from $BASE_DOCKERFILE..."
     docker build \
         "${BASE_BUILD_TAGS[@]}" \
+        "${BASE_FROM_IMAGE_ARG[@]}" \
         --build-arg SYSTEM="$SYSTEM" \
         --build-arg SYSTEM_VERSION="$SYSTEM_VERSION" \
         --build-arg USERNAME="$CONTAINER_USER" \
@@ -378,8 +455,8 @@ if [ "$PUBLISH" = true ] || [ "$EXECUTE_BUILD" = true ]; then
 
     BUILD_TAGS=()
     BUILD_TAG_REASONS=()
-    append_standard_image_tags "$IMAGE_NAME" "$DESKTOP_TAG_PREFIX" "BUILD_TAGS" "BUILD_TAG_REASONS"
-    append_short_image_tags "$IMAGE_NAME" "$DESKTOP_TAG_PREFIX" "$SHORT_DESKTOP_TAG_PREFIX" "default system-version and/or desktop omitted" "BUILD_TAGS" "BUILD_TAG_REASONS"
+    append_standard_image_tags "$IMAGE_NAME" "$EFFECTIVE_DESKTOP_TAG_PREFIX" "BUILD_TAGS" "BUILD_TAG_REASONS"
+    append_short_image_tags "$IMAGE_NAME" "$EFFECTIVE_DESKTOP_TAG_PREFIX" "$EFFECTIVE_SHORT_DESKTOP_TAG_PREFIX" "default system-version and/or desktop omitted" "BUILD_TAGS" "BUILD_TAG_REASONS"
 
     BUILD_TAGS_FLAVOR=("${BUILD_TAGS[@]}")
     BUILD_TAGS_FLAVOR_REASONS=("${BUILD_TAG_REASONS[@]}")
@@ -388,15 +465,35 @@ fi
 if [ "$PUBLISH" = true ]; then
     echo "Publisher mode enabled. Building and Pushing Multi-Arch Images (amd64, arm64)..."
 
+    BASE_FROM_IMAGE_ARG=()
+    if [ "$ENABLE_CN_MIRROR" = true ]; then
+        echo "Pushing CN base image..."
+        CN_PUBLISH_TAGS=()
+        CN_PUBLISH_TAG_REASONS=()
+        append_standard_image_tags "$BASE_IMAGE_NAME" "$CN_TAG_PREFIX" "CN_PUBLISH_TAGS" "CN_PUBLISH_TAG_REASONS"
+        append_short_image_tags "$BASE_IMAGE_NAME" "$CN_TAG_PREFIX" "$SHORT_CN_TAG_PREFIX" "default system-version omitted" "CN_PUBLISH_TAGS" "CN_PUBLISH_TAG_REASONS"
+
+        docker buildx build \
+            --platform linux/amd64,linux/arm64 \
+            --build-arg SYSTEM="$SYSTEM" \
+            --build-arg SYSTEM_VERSION="$SYSTEM_VERSION" \
+            "${CN_PUBLISH_TAGS[@]}" \
+            --push \
+            -f "$CN_DOCKERFILE" .
+
+        BASE_FROM_IMAGE_ARG=(--build-arg "BASE_FROM_IMAGE=${CN_IMAGE_PUBLISH_REF}")
+    fi
+
     # Push base image
     echo "Pushing base image..."
     BASE_PUBLISH_TAGS=()
     BASE_PUBLISH_TAG_REASONS=()
-    append_standard_image_tags "$BASE_IMAGE_NAME" "$BASE_TAG_PREFIX" "BASE_PUBLISH_TAGS" "BASE_PUBLISH_TAG_REASONS"
-    append_short_image_tags "$BASE_IMAGE_NAME" "$BASE_TAG_PREFIX" "$SHORT_BASE_TAG_PREFIX" "default system-version omitted" "BASE_PUBLISH_TAGS" "BASE_PUBLISH_TAG_REASONS"
+    append_standard_image_tags "$BASE_IMAGE_NAME" "$EFFECTIVE_BASE_TAG_PREFIX" "BASE_PUBLISH_TAGS" "BASE_PUBLISH_TAG_REASONS"
+    append_short_image_tags "$BASE_IMAGE_NAME" "$EFFECTIVE_BASE_TAG_PREFIX" "$EFFECTIVE_SHORT_BASE_TAG_PREFIX" "default system-version omitted" "BASE_PUBLISH_TAGS" "BASE_PUBLISH_TAG_REASONS"
 
     docker buildx build \
         --platform linux/amd64,linux/arm64 \
+        "${BASE_FROM_IMAGE_ARG[@]}" \
         --build-arg SYSTEM="$SYSTEM" \
         --build-arg SYSTEM_VERSION="$SYSTEM_VERSION" \
         --build-arg USERNAME="$CONTAINER_USER" \
@@ -420,6 +517,9 @@ if [ "$PUBLISH" = true ]; then
 
     echo "Multi-arch build and push finished."
     print_tag_summary "Desktop image pushed variants:" "BUILD_TAGS_FLAVOR" "BUILD_TAGS_FLAVOR_REASONS"
+    if [ "$ENABLE_CN_MIRROR" = true ]; then
+        print_tag_summary "CN image pushed variants:" "CN_PUBLISH_TAGS" "CN_PUBLISH_TAG_REASONS"
+    fi
     echo "Cleaning up dangling images..."
     docker image prune -f
 
@@ -434,6 +534,9 @@ elif [ "$EXECUTE_BUILD" = true ]; then
         -f "$DOCKERFILE" .
 
     echo "Docker image build process finished."
+    if [ "$ENABLE_CN_MIRROR" = true ]; then
+        print_tag_summary "CN image created variants:" "CN_BUILD_TAGS" "CN_BUILD_TAG_REASONS"
+    fi
     print_tag_summary "Base image created variants:" "BASE_BUILD_TAGS" "BASE_BUILD_TAG_REASONS"
     print_tag_summary "Desktop image created variants:" "BUILD_TAGS_FLAVOR" "BUILD_TAGS_FLAVOR_REASONS"
     echo "Cleaning up dangling images..."
