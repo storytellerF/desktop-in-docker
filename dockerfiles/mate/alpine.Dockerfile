@@ -6,12 +6,8 @@ USER root
 
 # Install MATE on Alpine Linux
 RUN apk add --no-cache \
-    mate-desktop \
-    mate-panel \
-    mate-session-manager \
+    mate-desktop-environment \
     mate-terminal \
-    caja \
-    marco \
     dbus-x11 \
     xdg-utils
 

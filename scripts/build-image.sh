@@ -19,6 +19,8 @@ usage() {
     echo "  -P, --publish                Build and Push multi-arch images to Docker Hub (requires docker login)"
     echo "  -m, --multi-arch             Enable multi-arch mode (builds/pushes for amd64 and arm64)"
     echo "  -d, --desktop <desktop>      Specify the desktop environment (xfce, lxqt, kde, mate, cinnamon, lxde, gnome, enlightenment) (default: xfce)"
+    echo "  --cn-mirror                  Force China mirror mode (CN tags + build-time package mirrors)"
+    echo "  --no-cn-mirror               Disable China mirror mode"
     echo "  --latest                     Tag the image as 'latest'"
     echo "  --no-snapshot                Do not tag the image as 'snapshot' (snapshot is tagged by default)"
     echo "  -h, --help                   Display this help message"
@@ -163,6 +165,7 @@ CMD_VNC_PASSWORD=""
 CMD_DESKTOP_ENV=""
 CMD_SYSTEM=""
 CMD_SYSTEM_VERSION=""
+CMD_CN_MIRROR_MODE=""
 TAG_LATEST=false
 TAG_SNAPSHOT=true
 
@@ -197,6 +200,12 @@ while [[ "$#" -gt 0 ]]; do
             ;;
         -m|--multi-arch)
             MULTI_ARCH=true
+            ;;
+        --cn-mirror)
+            CMD_CN_MIRROR_MODE="on"
+            ;;
+        --no-cn-mirror)
+            CMD_CN_MIRROR_MODE="off"
             ;;
         --latest)
             TAG_LATEST=true
@@ -274,6 +283,59 @@ if is_default_desktop; then
     fi
 fi
 
+CN_MIRROR_MODE="${CN_MIRROR_MODE:-}"
+if [ -z "$CN_MIRROR_MODE" ] && [ -n "${ENABLE_CN_MIRROR+x}" ]; then
+    if [ "$ENABLE_CN_MIRROR" = "true" ]; then
+        CN_MIRROR_MODE="on"
+    elif [ "$ENABLE_CN_MIRROR" = "false" ]; then
+        CN_MIRROR_MODE="off"
+    fi
+fi
+[ -n "$CMD_CN_MIRROR_MODE" ] && CN_MIRROR_MODE="$CMD_CN_MIRROR_MODE"
+CN_MIRROR_MODE="${CN_MIRROR_MODE:-auto}"
+
+CURRENT_TZ="${TZ:-}"
+if [ -z "$CURRENT_TZ" ] && [ -f /etc/timezone ]; then
+    CURRENT_TZ=$(cat /etc/timezone)
+fi
+if [ -z "$CURRENT_TZ" ]; then
+    CURRENT_TZ=$(readlink /etc/localtime 2>/dev/null | sed 's#.*/zoneinfo/##')
+fi
+
+DEFAULT_ENABLE_CN_MIRROR=false
+case "$CURRENT_TZ" in
+    Asia/Shanghai|Asia/Chongqing|Asia/Harbin|Asia/Urumqi|PRC) DEFAULT_ENABLE_CN_MIRROR=true ;;
+esac
+
+ENABLE_CN_MIRROR="$DEFAULT_ENABLE_CN_MIRROR"
+if [ "$CN_MIRROR_MODE" = "on" ]; then
+    ENABLE_CN_MIRROR=true
+elif [ "$CN_MIRROR_MODE" = "off" ]; then
+    ENABLE_CN_MIRROR=false
+fi
+
+EFFECTIVE_BASE_TAG_PREFIX="$BASE_TAG_PREFIX"
+EFFECTIVE_SHORT_BASE_TAG_PREFIX="$SHORT_BASE_TAG_PREFIX"
+EFFECTIVE_DESKTOP_TAG_PREFIX="$DESKTOP_TAG_PREFIX"
+EFFECTIVE_SHORT_DESKTOP_TAG_PREFIX="$SHORT_DESKTOP_TAG_PREFIX"
+
+if [ "$ENABLE_CN_MIRROR" = true ]; then
+    CN_TAG_PREFIX="${SYSTEM}-${SYSTEM_VERSION}-cn"
+    SHORT_CN_TAG_PREFIX="$CN_TAG_PREFIX"
+    if is_default_system_version; then
+        SHORT_CN_TAG_PREFIX="cn"
+    fi
+
+    EFFECTIVE_BASE_TAG_PREFIX="${BASE_TAG_PREFIX}-cn"
+    EFFECTIVE_SHORT_BASE_TAG_PREFIX="${SHORT_BASE_TAG_PREFIX}-cn"
+    EFFECTIVE_DESKTOP_TAG_PREFIX="${DESKTOP_TAG_PREFIX}-cn"
+    if [ -z "$SHORT_DESKTOP_TAG_PREFIX" ]; then
+        EFFECTIVE_SHORT_DESKTOP_TAG_PREFIX="cn"
+    else
+        EFFECTIVE_SHORT_DESKTOP_TAG_PREFIX="${SHORT_DESKTOP_TAG_PREFIX}-cn"
+    fi
+fi
+
 # If creating env, handle interactive mode
 if [ "$CREATE_ENV" = true ]; then
     read -p "Enter VNC password (default: $VNC_PASSWD, enter 'r' for random): " INPUT_PASSWORD
@@ -318,45 +380,13 @@ if [ -n "$DOCKER_USERNAME" ]; then
     BASE_IMAGE_NAME="${DOCKER_USERNAME}/${BASE_IMAGE_NAME}"
 fi
 
-
 if [ "$PUBLISH" = true ] || [ "$EXECUTE_BUILD" = true ]; then
-    # Auto-enable China mirror switching when the local timezone is in China.
-    CURRENT_TZ="${TZ:-}"
-    if [ -z "$CURRENT_TZ" ] && [ -f /etc/timezone ]; then
-        CURRENT_TZ=$(cat /etc/timezone)
-    fi
-    if [ -z "$CURRENT_TZ" ]; then
-        CURRENT_TZ=$(readlink /etc/localtime 2>/dev/null | sed 's#.*/zoneinfo/##')
-    fi
-
     echo "Detected timezone: ${CURRENT_TZ:-unknown}"
-    ENABLE_CN_MIRROR=false
-    case "$CURRENT_TZ" in
-        Asia/Shanghai|Asia/Chongqing|Asia/Harbin|Asia/Urumqi|PRC) ENABLE_CN_MIRROR=true ;;
-    esac
-
-    EFFECTIVE_BASE_TAG_PREFIX="$BASE_TAG_PREFIX"
-    EFFECTIVE_SHORT_BASE_TAG_PREFIX="$SHORT_BASE_TAG_PREFIX"
-    EFFECTIVE_DESKTOP_TAG_PREFIX="$DESKTOP_TAG_PREFIX"
-    EFFECTIVE_SHORT_DESKTOP_TAG_PREFIX="$SHORT_DESKTOP_TAG_PREFIX"
-
     if [ "$ENABLE_CN_MIRROR" = true ]; then
-        CN_TAG_PREFIX="${SYSTEM}-${SYSTEM_VERSION}-cn"
-        SHORT_CN_TAG_PREFIX="$CN_TAG_PREFIX"
-        if is_default_system_version; then
-            SHORT_CN_TAG_PREFIX="cn"
-        fi
-
-        EFFECTIVE_BASE_TAG_PREFIX="${BASE_TAG_PREFIX}-cn"
-        EFFECTIVE_SHORT_BASE_TAG_PREFIX="${SHORT_BASE_TAG_PREFIX}-cn"
-        EFFECTIVE_DESKTOP_TAG_PREFIX="${DESKTOP_TAG_PREFIX}-cn"
-        if [ -z "$SHORT_DESKTOP_TAG_PREFIX" ]; then
-            EFFECTIVE_SHORT_DESKTOP_TAG_PREFIX="cn"
-        else
-            EFFECTIVE_SHORT_DESKTOP_TAG_PREFIX="${SHORT_DESKTOP_TAG_PREFIX}-cn"
-        fi
+        echo "China mirror mode: enabled"
+    else
+        echo "China mirror mode: disabled"
     fi
-
     # Determine base dockerfile
     BASE_DOCKERFILE="dockerfiles/base/Dockerfile"
     if [ -f "dockerfiles/base/${SYSTEM}.Dockerfile" ]; then
@@ -558,14 +588,20 @@ fi
 # Start container if requested
 if [ "$START_CONTAINER" = true ]; then
     echo ""
+    echo "Detected timezone: ${CURRENT_TZ:-unknown}"
+    if [ "$ENABLE_CN_MIRROR" = true ]; then
+        echo "China mirror mode: enabled"
+    else
+        echo "China mirror mode: disabled"
+    fi
 
     # Determine IMAGE_TAG for docker compose
     if [ "$TAG_LATEST" = true ]; then
-        IMAGE_TAG="${DESKTOP_TAG_PREFIX}-latest"
+        IMAGE_TAG="${EFFECTIVE_DESKTOP_TAG_PREFIX}-latest"
     elif [ "$TAG_SNAPSHOT" = true ]; then
-        IMAGE_TAG="${DESKTOP_TAG_PREFIX}-snapshot"
+        IMAGE_TAG="${EFFECTIVE_DESKTOP_TAG_PREFIX}-snapshot"
     else
-        IMAGE_TAG="${DESKTOP_TAG_PREFIX}-${CURRENT_DATE}"
+        IMAGE_TAG="${EFFECTIVE_DESKTOP_TAG_PREFIX}-${CURRENT_DATE}"
     fi
 
     # Export variables for docker compose
