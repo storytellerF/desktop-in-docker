@@ -19,6 +19,7 @@ RUN apt-get update && \
     locales \
     sudo \
     pv \
+    && DEBIAN_FRONTEND=noninteractive apt-get install -y fonts-noto \
     && rm -rf /var/lib/apt/lists/*
 
 RUN sed -i 's/^# *en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen \

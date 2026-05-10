@@ -18,6 +18,7 @@ RUN pacman-key --init && \
     python-pip \
     wget \
     unzip \
+    noto-fonts \
     sudo \
     pv \
     bash \

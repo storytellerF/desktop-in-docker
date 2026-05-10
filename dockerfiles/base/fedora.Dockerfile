@@ -14,6 +14,7 @@ RUN dnf install -y \
     novnc \
     wget \
     unzip \
+    google-noto-fonts \
     glibc-langpack-en \
     sudo \
     pv \

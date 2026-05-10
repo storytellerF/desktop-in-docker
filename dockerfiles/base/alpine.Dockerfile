@@ -22,6 +22,7 @@ RUN apk add --no-cache \
     novnc \
     wget \
     unzip \
+    font-noto \
     sudo \
     pv \
     bash \
