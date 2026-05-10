@@ -14,3 +14,6 @@ RUN pacman-key --init && \
         --clean-cache false \
         --lang en \
         --pure-mode'
+
+RUN pacman -Sy --noconfirm --needed fcitx5 fcitx5-chinese-addons && \
+    pacman -Scc --noconfirm

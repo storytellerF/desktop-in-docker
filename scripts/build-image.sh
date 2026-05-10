@@ -397,13 +397,19 @@ if [ "$PUBLISH" = true ] || [ "$EXECUTE_BUILD" = true ]; then
         exit 1
     fi
 
-    # Merge base dockerfile with user-config.dockerfrag
+    # Merge base dockerfile with user-config.dockerfrag and fcitx-config.dockerfrag
     USER_CONFIG_FILE="user-config.dockerfrag"
+    FCITX_CONFIG_FILE="fcitx-config.dockerfrag"
     BUILD_DIR="build"
     MERGED_DOCKERFILE="${BUILD_DIR}/${SYSTEM}.Dockerfile"
     
     if [ ! -f "$USER_CONFIG_FILE" ]; then
         echo "User config file not found: $USER_CONFIG_FILE"
+        exit 1
+    fi
+
+    if [ ! -f "$FCITX_CONFIG_FILE" ]; then
+        echo "Fcitx config file not found: $FCITX_CONFIG_FILE"
         exit 1
     fi
     
@@ -417,6 +423,11 @@ if [ "$PUBLISH" = true ] || [ "$EXECUTE_BUILD" = true ]; then
     echo "# User configuration - $(date)" >> "$MERGED_DOCKERFILE"
     echo "# Source: $USER_CONFIG_FILE" >> "$MERGED_DOCKERFILE"
     cat "$USER_CONFIG_FILE" >> "$MERGED_DOCKERFILE"
+
+    echo "" >> "$MERGED_DOCKERFILE"
+    echo "# Fcitx configuration - $(date)" >> "$MERGED_DOCKERFILE"
+    echo "# Source: $FCITX_CONFIG_FILE" >> "$MERGED_DOCKERFILE"
+    cat "$FCITX_CONFIG_FILE" >> "$MERGED_DOCKERFILE"
     
     # Use the merged dockerfile for building base image
     BASE_DOCKERFILE="$MERGED_DOCKERFILE"

@@ -12,3 +12,5 @@ RUN apk add --no-cache curl ca-certificates bash && \
         --clean-cache false \
         --lang en \
         --pure-mode'
+
+RUN apk add --no-cache fcitx5 fcitx5-chinese-addons

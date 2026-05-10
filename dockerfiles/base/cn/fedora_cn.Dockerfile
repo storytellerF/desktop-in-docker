@@ -12,3 +12,6 @@ RUN dnf install -y curl ca-certificates bash && \
         --clean-cache false \
         --lang en \
         --pure-mode'
+
+RUN dnf install -y fcitx fcitx-pinyin && \
+    dnf clean all
