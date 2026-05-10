@@ -101,7 +101,7 @@ docker compose port desktop 5901
 
 ## 目录结构
 
-- [dockerfiles/](file:///home/kx/Projects/desktop-in-docker/dockerfiles)：各发行版 base 与各桌面环境 Dockerfile
+- [docker/dockerfiles/](file:///home/kx/Projects/desktop-in-docker/docker/dockerfiles)：各发行版 base 与各桌面环境 Dockerfile
 - [user-config.dockerfrag](file:///home/kx/Projects/desktop-in-docker/user-config.dockerfrag)：构建时拼接进最终镜像的“用户侧片段”（拷贝脚本、暴露端口、设置 ENTRYPOINT）
 - [base-scripts/](file:///home/kx/Projects/desktop-in-docker/base-scripts)：容器内启动脚本（entrypoint、supervisord、VNC）
 - [supervisord.conf](file:///home/kx/Projects/desktop-in-docker/supervisord.conf)：启动 vnc/noVNC 的 supervisor 配置
@@ -109,5 +109,4 @@ docker compose port desktop 5901
 ## 安全提示
 
 - **务必设置 `VNC_PASSWD`**，并避免在不受信网络中暴露 VNC 端口。
-- base 镜像默认创建了一个拥有免密 sudo 权限的非 root 用户（方便开发/调试），不建议用于运行不受信任的工作负载；实现见 [dockerfiles/base/Dockerfile](file:///home/kx/Projects/desktop-in-docker/dockerfiles/base/Dockerfile)。
-
+- base 镜像默认创建了一个拥有免密 sudo 权限的非 root 用户（方便开发/调试），不建议用于运行不受信任的工作负载；实现见 [docker/dockerfiles/base/Dockerfile](file:///home/kx/Projects/desktop-in-docker/docker/dockerfiles/base/Dockerfile)。

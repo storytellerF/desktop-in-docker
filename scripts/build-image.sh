@@ -388,9 +388,9 @@ if [ "$PUBLISH" = true ] || [ "$EXECUTE_BUILD" = true ]; then
         echo "China mirror mode: disabled"
     fi
     # Determine base dockerfile
-    BASE_DOCKERFILE="dockerfiles/base/Dockerfile"
-    if [ -f "dockerfiles/base/${SYSTEM}.Dockerfile" ]; then
-        BASE_DOCKERFILE="dockerfiles/base/${SYSTEM}.Dockerfile"
+    BASE_DOCKERFILE="docker/dockerfiles/base/Dockerfile"
+    if [ -f "docker/dockerfiles/base/${SYSTEM}.Dockerfile" ]; then
+        BASE_DOCKERFILE="docker/dockerfiles/base/${SYSTEM}.Dockerfile"
     fi
     if [ ! -f "$BASE_DOCKERFILE" ]; then
         echo "Base Dockerfile not found for system '$SYSTEM': $BASE_DOCKERFILE"
@@ -433,9 +433,9 @@ if [ "$PUBLISH" = true ] || [ "$EXECUTE_BUILD" = true ]; then
     BASE_DOCKERFILE="$MERGED_DOCKERFILE"
 
     # Determine flavor dockerfile
-    DOCKERFILE="dockerfiles/${DESKTOP_ENV}/Dockerfile"
-    if [ -f "dockerfiles/${DESKTOP_ENV}/${SYSTEM}.Dockerfile" ]; then
-        DOCKERFILE="dockerfiles/${DESKTOP_ENV}/${SYSTEM}.Dockerfile"
+    DOCKERFILE="docker/dockerfiles/${DESKTOP_ENV}/Dockerfile"
+    if [ -f "docker/dockerfiles/${DESKTOP_ENV}/${SYSTEM}.Dockerfile" ]; then
+        DOCKERFILE="docker/dockerfiles/${DESKTOP_ENV}/${SYSTEM}.Dockerfile"
     fi
 
     if [ ! -f "$DOCKERFILE" ]; then
@@ -460,7 +460,7 @@ if [ "$PUBLISH" = true ] || [ "$EXECUTE_BUILD" = true ]; then
 
     BASE_FROM_IMAGE_ARG=()
     if [ "$ENABLE_CN_MIRROR" = true ]; then
-        CN_DOCKERFILE="dockerfiles/base/cn/${SYSTEM}_cn.Dockerfile"
+        CN_DOCKERFILE="docker/dockerfiles/base/cn/${SYSTEM}_cn.Dockerfile"
         if [ ! -f "$CN_DOCKERFILE" ]; then
             echo "CN base Dockerfile not found for system '$SYSTEM': $CN_DOCKERFILE"
             exit 1
