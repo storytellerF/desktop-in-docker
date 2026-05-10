@@ -20,6 +20,7 @@ RUN apk add --no-cache \
     tigervnc \
     websockify \
     novnc \
+    firefox \
     wget \
     unzip \
     font-noto \

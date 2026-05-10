@@ -22,6 +22,15 @@ RUN apt-get update && \
     && DEBIAN_FRONTEND=noninteractive apt-get install -y fonts-noto \
     && rm -rf /var/lib/apt/lists/*
 
+RUN install -d -m 0755 /etc/apt/keyrings \
+    && wget -q https://packages.mozilla.org/apt/repo-signing-key.gpg -O- | tee /etc/apt/keyrings/packages.mozilla.org.asc > /dev/null \
+    && printf 'Types: deb\nURIs: https://packages.mozilla.org/apt\nSuites: mozilla\nComponents: main\nSigned-By: /etc/apt/keyrings/packages.mozilla.org.asc\n' \
+        > /etc/apt/sources.list.d/mozilla.sources \
+    && printf 'Package: *\nPin: origin packages.mozilla.org\nPin-Priority: 1000\n' \
+        > /etc/apt/preferences.d/mozilla \
+    && apt-get update \
+    && DEBIAN_FRONTEND=noninteractive apt-get install -y firefox
+
 RUN locale-gen en_US.UTF-8
 
 # Set timezone

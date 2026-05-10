@@ -12,6 +12,8 @@ services:
     volumes:
       - ./logs:${CONTAINER_HOME:-/home/user}/log/supervisor
       - bash_history:${CONTAINER_HOME:-/home/user}/.desktop-in-docker/.bash_history
+      - firefox_cache:${CONTAINER_HOME:-/home/user}/.cache/mozilla/firefox
+      - firefox_config:${CONTAINER_HOME:-/home/user}/.mozilla/firefox
     shm_size: '2gb' # Allocate more shared memory
     restart: "unless-stopped"
 
@@ -20,3 +22,5 @@ volumes:
   sdk_data:
     external: true
   bash_history:
+  firefox_cache:
+  firefox_config:

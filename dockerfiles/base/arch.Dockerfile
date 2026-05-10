@@ -16,6 +16,7 @@ RUN pacman-key --init && \
     tigervnc \
     python \
     python-pip \
+    firefox \
     wget \
     unzip \
     noto-fonts \

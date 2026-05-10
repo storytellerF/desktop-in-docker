@@ -12,6 +12,7 @@ RUN dnf install -y \
     supervisor \
     tigervnc-server \
     novnc \
+    firefox \
     wget \
     unzip \
     google-noto-fonts \
@@ -19,7 +20,6 @@ RUN dnf install -y \
     sudo \
     pv \
     && dnf clean all
-
 
 # Set timezone
 RUN ln -snf /usr/share/zoneinfo/$TIMEZONE /etc/localtime && echo $TIMEZONE > /etc/timezone
