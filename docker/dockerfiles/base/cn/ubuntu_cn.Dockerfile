@@ -7,8 +7,9 @@ RUN apt-get update && \
     curl \
     ca-certificates \
     bash && \
-    rm -rf /var/lib/apt/lists/* && \
-    bash -o pipefail -c 'curl -fsSL https://linuxmirrors.cn/main.sh | bash -s -- \
+    rm -rf /var/lib/apt/lists/*
+
+RUN bash -o pipefail -c 'curl -fsSL https://linuxmirrors.cn/main.sh | bash -s -- \
         --source mirrors.aliyun.com \
         --protocol https \
         --use-intranet-source false \
