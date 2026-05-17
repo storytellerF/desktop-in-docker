@@ -433,6 +433,34 @@ if [ -n "$DOCKER_USERNAME" ]; then
     BASE_IMAGE_NAME="${DOCKER_USERNAME}/${BASE_IMAGE_NAME}"
 fi
 
+if [ "$WEBTOP_TYPE" = "linuxserver" ]; then
+    WEBTOP_DOCKERFILE="docker/dockerfiles/webtop/linuxserver/${SYSTEM}.Dockerfile"
+    WEBTOP_CONFIG_FILE="webtop-config.dockerfrag"
+    WEBTOP_BUILD_DIR="build/webtop"
+    WEBTOP_MERGED_DOCKERFILE="${WEBTOP_BUILD_DIR}/${SYSTEM}.Dockerfile"
+    if [ ! -f "$WEBTOP_DOCKERFILE" ]; then
+        echo "Webtop Dockerfile not found for system '$SYSTEM': $WEBTOP_DOCKERFILE"
+        exit 1
+    fi
+    if [ ! -f "$WEBTOP_CONFIG_FILE" ]; then
+        echo "Webtop config file not found: $WEBTOP_CONFIG_FILE"
+        exit 1
+    fi
+
+    echo "Webtop type: linuxserver"
+    echo "Upstream webtop image: $WEBTOP_IMAGE"
+    echo "Merging webtop Dockerfile into $WEBTOP_MERGED_DOCKERFILE..."
+    mkdir -p "$WEBTOP_BUILD_DIR"
+    > "$WEBTOP_MERGED_DOCKERFILE"
+    echo "# Webtop system configuration - $(date)" >> "$WEBTOP_MERGED_DOCKERFILE"
+    echo "# Source: $WEBTOP_DOCKERFILE" >> "$WEBTOP_MERGED_DOCKERFILE"
+    cat "$WEBTOP_DOCKERFILE" >> "$WEBTOP_MERGED_DOCKERFILE"
+    echo "" >> "$WEBTOP_MERGED_DOCKERFILE"
+    echo "# Webtop shared configuration - $(date)" >> "$WEBTOP_MERGED_DOCKERFILE"
+    echo "# Source: $WEBTOP_CONFIG_FILE" >> "$WEBTOP_MERGED_DOCKERFILE"
+    cat "$WEBTOP_CONFIG_FILE" >> "$WEBTOP_MERGED_DOCKERFILE"
+fi
+
 if [ "$PUBLISH" = true ] || [ "$EXECUTE_BUILD" = true ]; then
     echo "Detected timezone: ${CURRENT_TZ:-unknown}"
     if [ "$ENABLE_CN_MIRROR" = true ]; then
@@ -442,15 +470,7 @@ if [ "$PUBLISH" = true ] || [ "$EXECUTE_BUILD" = true ]; then
     fi
 
     if [ "$WEBTOP_TYPE" = "linuxserver" ]; then
-        WEBTOP_DOCKERFILE="docker/dockerfiles/webtop/linuxserver/${SYSTEM}.Dockerfile"
-        if [ ! -f "$WEBTOP_DOCKERFILE" ]; then
-            echo "Webtop Dockerfile not found for system '$SYSTEM': $WEBTOP_DOCKERFILE"
-            exit 1
-        fi
-
-        echo "Webtop type: linuxserver"
-        echo "Upstream webtop image: $WEBTOP_IMAGE"
-        echo "Building using $WEBTOP_DOCKERFILE"
+        echo "Building using $WEBTOP_MERGED_DOCKERFILE"
 
         WEBTOP_BASE_IMAGE_LOCAL_REF="$WEBTOP_IMAGE"
         WEBTOP_BASE_IMAGE_PUBLISH_REF="$WEBTOP_IMAGE"
@@ -478,7 +498,7 @@ if [ "$PUBLISH" = true ] || [ "$EXECUTE_BUILD" = true ]; then
 
         BUILD_TAGS_FLAVOR=("${BUILD_TAGS[@]}")
         BUILD_TAGS_FLAVOR_REASONS=("${BUILD_TAG_REASONS[@]}")
-        DOCKERFILE="$WEBTOP_DOCKERFILE"
+        DOCKERFILE="$WEBTOP_MERGED_DOCKERFILE"
     else
     # Determine base dockerfile
     BASE_DOCKERFILE="docker/dockerfiles/base/Dockerfile"
@@ -493,7 +513,7 @@ if [ "$PUBLISH" = true ] || [ "$EXECUTE_BUILD" = true ]; then
     # Merge base dockerfile with user-config.dockerfrag and fcitx-config.dockerfrag
     USER_CONFIG_FILE="user-config.dockerfrag"
     FCITX_CONFIG_FILE="fcitx-config.dockerfrag"
-    BUILD_DIR="build"
+    BUILD_DIR="build/custom"
     MERGED_DOCKERFILE="${BUILD_DIR}/${SYSTEM}.Dockerfile"
     
     if [ ! -f "$USER_CONFIG_FILE" ]; then
