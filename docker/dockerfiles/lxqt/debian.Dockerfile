@@ -7,34 +7,36 @@ USER root
 RUN printf 'Package: %s\nPin: release *\nPin-Priority: -1\n\n' \
     upower \
     power-profiles-daemon \
-    cinnamon-settings-daemon \
-    cinnamon-screensaver \
+    lxqt-powermanagement \
+    lxqt-screensaver \
     xscreensaver \
     xscreensaver-data \
     gnome-screensaver \
     mate-screensaver \
+    cinnamon-screensaver \
     kscreenlocker-common \
     light-locker \
     xfce4-screensaver \
     > /etc/apt/preferences.d/no-desktop-extras
 
-# Install Cinnamon-specific packages
+# Install LXQt-specific packages
 RUN apt-get update && \
     DEBIAN_FRONTEND=noninteractive \
     apt-get install -y \
     dbus-x11 \
     x11-xserver-utils \
     xfonts-base \
-    cinnamon \
+    lxqt \
     && rm -rf /var/lib/apt/lists/*
 
-ARG USERNAME=ubuntu
+ARG USERNAME=debian
 USER $USERNAME
 WORKDIR /home/$USERNAME
 
 # Setup the startup script for the VNC server to launch the desktop
+# Using dbus-run-session is the modern way to ensure a fresh session bus
 RUN mkdir -p .config/tigervnc && \
     echo "#!/bin/bash" > .config/tigervnc/xstartup && \
     echo "[ -f \"\$HOME/.Xresources\" ] && xrdb \"\$HOME/.Xresources\"" >> .config/tigervnc/xstartup && \
-    echo "exec dbus-run-session cinnamon-session" >> .config/tigervnc/xstartup && \
+    echo "exec dbus-run-session startlxqt" >> .config/tigervnc/xstartup && \
     chmod +x .config/tigervnc/xstartup

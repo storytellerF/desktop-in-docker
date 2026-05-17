@@ -7,10 +7,9 @@ USER root
 RUN printf 'Package: %s\nPin: release *\nPin-Priority: -1\n\n' \
     upower \
     power-profiles-daemon \
-    gnome-power-manager \
-    gnome-screensaver \
     xscreensaver \
     xscreensaver-data \
+    gnome-screensaver \
     mate-screensaver \
     cinnamon-screensaver \
     kscreenlocker-common \
@@ -18,24 +17,23 @@ RUN printf 'Package: %s\nPin: release *\nPin-Priority: -1\n\n' \
     xfce4-screensaver \
     > /etc/apt/preferences.d/no-desktop-extras
 
-# Install GNOME-specific packages
+# Install Enlightenment-specific packages
 RUN apt-get update && \
     DEBIAN_FRONTEND=noninteractive \
     apt-get install -y \
     dbus-x11 \
     x11-xserver-utils \
     xfonts-base \
-    gnome \
+    enlightenment \
     && rm -rf /var/lib/apt/lists/*
 
-USER debian
-WORKDIR /home/debian
+ARG USERNAME=debian
+USER $USERNAME
+WORKDIR /home/$USERNAME
 
 # Setup the startup script for the VNC server to launch the desktop
-# Using dbus-run-session for the GNOME session
 RUN mkdir -p .config/tigervnc && \
     echo "#!/bin/bash" > .config/tigervnc/xstartup && \
     echo "[ -f \"\$HOME/.Xresources\" ] && xrdb \"\$HOME/.Xresources\"" >> .config/tigervnc/xstartup && \
-    echo "export DISPLAY=:1" >> .config/tigervnc/xstartup && \
-    echo "exec dbus-run-session gnome-session" >> .config/tigervnc/xstartup && \
+    echo "exec dbus-run-session enlightenment_start" >> .config/tigervnc/xstartup && \
     chmod +x .config/tigervnc/xstartup

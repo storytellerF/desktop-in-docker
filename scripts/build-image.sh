@@ -293,6 +293,11 @@ if [ "$WEBTOP_TYPE" = "linuxserver" ]; then
     DESKTOP_TAG_PREFIX="${WEBTOP_TYPE}-${WEBTOP_TAG}"
 fi
 
+case "$SYSTEM" in
+    arch) SYSTEM_BASE_FROM_IMAGE="archlinux:${SYSTEM_VERSION}" ;;
+    *) SYSTEM_BASE_FROM_IMAGE="${SYSTEM}:${SYSTEM_VERSION}" ;;
+esac
+
 SHORT_BASE_TAG_PREFIX="$BASE_TAG_PREFIX"
 if is_default_system_version; then
     SHORT_BASE_TAG_PREFIX="base"
@@ -435,6 +440,9 @@ fi
 
 if [ "$WEBTOP_TYPE" = "linuxserver" ]; then
     WEBTOP_DOCKERFILE="docker/dockerfiles/webtop/linuxserver/${SYSTEM}.Dockerfile"
+    if [ ! -f "$WEBTOP_DOCKERFILE" ]; then
+        WEBTOP_DOCKERFILE="docker/dockerfiles/webtop/linuxserver/debian.Dockerfile"
+    fi
     WEBTOP_CONFIG_FILE="webtop-config.dockerfrag"
     WEBTOP_BUILD_DIR="build/webtop"
     WEBTOP_MERGED_DOCKERFILE="${WEBTOP_BUILD_DIR}/${SYSTEM}.Dockerfile"
@@ -477,6 +485,9 @@ if [ "$PUBLISH" = true ] || [ "$EXECUTE_BUILD" = true ]; then
         if [ "$ENABLE_CN_MIRROR" = true ]; then
             WEBTOP_CN_DOCKERFILE="docker/dockerfiles/webtop/linuxserver/cn/${SYSTEM}_cn.Dockerfile"
             if [ ! -f "$WEBTOP_CN_DOCKERFILE" ]; then
+                WEBTOP_CN_DOCKERFILE="docker/dockerfiles/webtop/linuxserver/cn/debian_cn.Dockerfile"
+            fi
+            if [ ! -f "$WEBTOP_CN_DOCKERFILE" ]; then
                 echo "Webtop CN Dockerfile not found for system '$SYSTEM': $WEBTOP_CN_DOCKERFILE"
                 exit 1
             fi
@@ -501,7 +512,7 @@ if [ "$PUBLISH" = true ] || [ "$EXECUTE_BUILD" = true ]; then
         DOCKERFILE="$WEBTOP_MERGED_DOCKERFILE"
     else
     # Determine base dockerfile
-    BASE_DOCKERFILE="docker/dockerfiles/base/Dockerfile"
+    BASE_DOCKERFILE="docker/dockerfiles/base/debian.Dockerfile"
     if [ -f "docker/dockerfiles/base/${SYSTEM}.Dockerfile" ]; then
         BASE_DOCKERFILE="docker/dockerfiles/base/${SYSTEM}.Dockerfile"
     fi
@@ -546,7 +557,7 @@ if [ "$PUBLISH" = true ] || [ "$EXECUTE_BUILD" = true ]; then
     BASE_DOCKERFILE="$MERGED_DOCKERFILE"
 
     # Determine flavor dockerfile
-    DOCKERFILE="docker/dockerfiles/${DESKTOP_ENV}/Dockerfile"
+    DOCKERFILE="docker/dockerfiles/${DESKTOP_ENV}/debian.Dockerfile"
     if [ -f "docker/dockerfiles/${DESKTOP_ENV}/${SYSTEM}.Dockerfile" ]; then
         DOCKERFILE="docker/dockerfiles/${DESKTOP_ENV}/${SYSTEM}.Dockerfile"
     fi
@@ -571,9 +582,12 @@ if [ "$PUBLISH" = true ] || [ "$EXECUTE_BUILD" = true ]; then
     BASE_IMAGE_LOCAL_REF="${BASE_IMAGE_NAME}:${EFFECTIVE_BASE_TAG_PREFIX}-${CURRENT_DATE}"
     BASE_IMAGE_PUBLISH_REF="${BASE_IMAGE_NAME}:${EFFECTIVE_BASE_TAG_PREFIX}-${CURRENT_DATE}"
 
-    BASE_FROM_IMAGE_ARG=()
+    BASE_FROM_IMAGE_ARG=(--build-arg "BASE_FROM_IMAGE=${SYSTEM_BASE_FROM_IMAGE}")
     if [ "$ENABLE_CN_MIRROR" = true ]; then
         CN_DOCKERFILE="docker/dockerfiles/base/cn/${SYSTEM}_cn.Dockerfile"
+        if [ ! -f "$CN_DOCKERFILE" ]; then
+            CN_DOCKERFILE="docker/dockerfiles/base/cn/debian_cn.Dockerfile"
+        fi
         if [ ! -f "$CN_DOCKERFILE" ]; then
             echo "CN base Dockerfile not found for system '$SYSTEM': $CN_DOCKERFILE"
             exit 1
@@ -592,6 +606,7 @@ if [ "$PUBLISH" = true ] || [ "$EXECUTE_BUILD" = true ]; then
             "${CN_BUILD_TAGS[@]}" \
             --build-arg SYSTEM="$SYSTEM" \
             --build-arg SYSTEM_VERSION="$SYSTEM_VERSION" \
+            --build-arg BASE_FROM_IMAGE="$SYSTEM_BASE_FROM_IMAGE" \
             -f "$CN_DOCKERFILE" .
 
         BASE_FROM_IMAGE_ARG=(--build-arg "BASE_FROM_IMAGE=${CN_IMAGE_LOCAL_REF}")
@@ -644,7 +659,7 @@ if [ "$PUBLISH" = true ]; then
         fi
         print_tag_summary "Webtop image pushed variants:" "BUILD_TAGS_FLAVOR" "BUILD_TAGS_FLAVOR_REASONS"
     else
-    BASE_FROM_IMAGE_ARG=()
+    BASE_FROM_IMAGE_ARG=(--build-arg "BASE_FROM_IMAGE=${SYSTEM_BASE_FROM_IMAGE}")
     if [ "$ENABLE_CN_MIRROR" = true ]; then
         echo "Pushing CN base image..."
         CN_PUBLISH_TAGS=()
@@ -656,6 +671,7 @@ if [ "$PUBLISH" = true ]; then
             --platform linux/amd64,linux/arm64 \
             --build-arg SYSTEM="$SYSTEM" \
             --build-arg SYSTEM_VERSION="$SYSTEM_VERSION" \
+            --build-arg BASE_FROM_IMAGE="$SYSTEM_BASE_FROM_IMAGE" \
             "${CN_PUBLISH_TAGS[@]}" \
             --push \
             -f "$CN_DOCKERFILE" .

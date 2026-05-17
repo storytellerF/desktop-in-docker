@@ -28,7 +28,7 @@ RUN apt-get update && \
     lxde \
     && rm -rf /var/lib/apt/lists/*
 
-ARG USERNAME=ubuntu
+ARG USERNAME=debian
 USER $USERNAME
 WORKDIR /home/$USERNAME
 

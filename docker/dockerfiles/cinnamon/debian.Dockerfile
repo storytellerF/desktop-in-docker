@@ -28,8 +28,9 @@ RUN apt-get update && \
     cinnamon \
     && rm -rf /var/lib/apt/lists/*
 
-USER debian
-WORKDIR /home/debian
+ARG USERNAME=debian
+USER $USERNAME
+WORKDIR /home/$USERNAME
 
 # Setup the startup script for the VNC server to launch the desktop
 # Using cinnamon-session-cinnamon for the default experience

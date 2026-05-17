@@ -139,4 +139,4 @@ linuxserver webtop 模式保留简写标签，但不会省略 `linuxserver` 前�
 ## 安全提示
 
 - **务必设置 `VNC_PASSWD`**，并避免在不受信网络中暴露 VNC 端口。
-- base 镜像默认创建了一个拥有免密 sudo 权限的非 root 用户（方便开发/调试），不建议用于运行不受信任的工作负载；实现见 [docker/dockerfiles/base/Dockerfile](file:///home/kx/Projects/desktop-in-docker/docker/dockerfiles/base/Dockerfile)。
+- base 镜像默认创建了一个拥有免密 sudo 权限的非 root 用户（方便开发/调试），不建议用于运行不受信任的工作负载；实现见 [docker/dockerfiles/base/debian.Dockerfile](file:///home/kx/Projects/desktop-in-docker/docker/dockerfiles/base/debian.Dockerfile)。

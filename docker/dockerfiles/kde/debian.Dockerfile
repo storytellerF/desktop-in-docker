@@ -7,33 +7,37 @@ USER root
 RUN printf 'Package: %s\nPin: release *\nPin-Priority: -1\n\n' \
     upower \
     power-profiles-daemon \
-    mate-power-manager \
-    mate-screensaver \
+    powerdevil \
+    kscreenlocker-common \
     xscreensaver \
     xscreensaver-data \
     gnome-screensaver \
+    mate-screensaver \
     cinnamon-screensaver \
-    kscreenlocker-common \
     light-locker \
     xfce4-screensaver \
     > /etc/apt/preferences.d/no-desktop-extras
 
-# Install MATE-specific packages
+# Install KDE-specific packages
+# kde-plasma-desktop is a minimal KDE installation
 RUN apt-get update && \
     DEBIAN_FRONTEND=noninteractive \
     apt-get install -y \
     dbus-x11 \
     x11-xserver-utils \
     xfonts-base \
-    mate-desktop-environment \
+    kde-plasma-desktop \
     && rm -rf /var/lib/apt/lists/*
 
-USER debian
-WORKDIR /home/debian
+ARG USERNAME=debian
+USER $USERNAME
+WORKDIR /home/$USERNAME
 
 # Setup the startup script for the VNC server to launch the desktop
+# Using dbus-run-session is recommended for KDE to ensure a proper session bus
 RUN mkdir -p .config/tigervnc && \
     echo "#!/bin/bash" > .config/tigervnc/xstartup && \
     echo "[ -f \"\$HOME/.Xresources\" ] && xrdb \"\$HOME/.Xresources\"" >> .config/tigervnc/xstartup && \
-    echo "exec dbus-run-session mate-session" >> .config/tigervnc/xstartup && \
+    echo "export KWIN_COMPOSE=N" >> .config/tigervnc/xstartup && \
+    echo "exec dbus-run-session startplasma-x11" >> .config/tigervnc/xstartup && \
     chmod +x .config/tigervnc/xstartup

@@ -1,5 +1,6 @@
 ARG SYSTEM_VERSION=trixie
-FROM debian:${SYSTEM_VERSION}
+ARG BASE_FROM_IMAGE=debian:${SYSTEM_VERSION}
+FROM ${BASE_FROM_IMAGE}
 
 RUN apt-get update && \
     DEBIAN_FRONTEND=noninteractive \
