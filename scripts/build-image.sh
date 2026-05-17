@@ -9,7 +9,7 @@ DEFAULT_VNC_PASSWORD="password"
 usage() {
     echo "Usage: $0 [OPTIONS]"
     echo "Options:"
-    echo "  -s, --system <system>        Specify the Linux distribution (debian, ubuntu, fedora, arch, alpine) (default: debian)"
+    echo "  -s, --system <system>        Specify the Linux distribution; in webtop mode selects the upstream tag system (debian, ubuntu, fedora, arch, alpine) (default: debian)"
     echo "  -v, --version <version>      Specify the distribution version (e.g., bookworm, trixie, focal, jammy, noble)"
     echo "  -p, --password <password>    Specify the VNC password (default: $DEFAULT_VNC_PASSWORD)"
     echo "  -c, --create-env             Create or overwrite the .env file with the specified or default values"
@@ -18,7 +18,8 @@ usage() {
     echo "  -T, --stop                   Stop docker compose (runs down; if combined with --start, stops first)"
     echo "  -P, --publish                Build and Push multi-arch images to Docker Hub (requires docker login)"
     echo "  -m, --multi-arch             Enable multi-arch mode (builds/pushes for amd64 and arm64)"
-    echo "  -d, --desktop <desktop>      Specify the desktop environment (xfce, lxqt, kde, mate, cinnamon, lxde, gnome, enlightenment) (default: xfce)"
+    echo "  -d, --desktop <desktop>      Specify the desktop environment; in webtop mode selects the upstream tag desktop (xfce, lxqt, kde, mate, cinnamon, lxde, gnome, enlightenment) (default: xfce)"
+    echo "  -w, --webtop-type <type>     Specify build backend (custom, linuxserver) (default: custom)"
     echo "  --cn-mirror                  Force China mirror mode (CN tags + build-time package mirrors)"
     echo "  --no-cn-mirror               Disable China mirror mode"
     echo "  --latest                     Tag the image as 'latest'"
@@ -87,6 +88,10 @@ print_tag_summary() {
 
 print_available_desktops() {
     echo "Available desktop environments: xfce, lxqt, kde, mate, cinnamon, lxde, gnome, enlightenment"
+}
+
+print_available_webtop_types() {
+    echo "Available webtop types: custom, linuxserver"
 }
 
 is_default_system_version() {
@@ -166,6 +171,7 @@ CMD_DESKTOP_ENV=""
 CMD_SYSTEM=""
 CMD_SYSTEM_VERSION=""
 CMD_CN_MIRROR_MODE=""
+CMD_WEBTOP_TYPE=""
 TAG_LATEST=false
 TAG_SNAPSHOT=true
 
@@ -217,6 +223,10 @@ while [[ "$#" -gt 0 ]]; do
             CMD_DESKTOP_ENV="$2"
             shift
             ;;
+        -w|--webtop-type)
+            CMD_WEBTOP_TYPE="$2"
+            shift
+            ;;
         -h|--help)
             usage
             ;;
@@ -245,11 +255,22 @@ IMAGE_TIMESTAMP="${IMAGE_TIMESTAMP:-$CURRENT_DATE}"
 [ -n "$CMD_DESKTOP_ENV" ] && DESKTOP_ENV="$CMD_DESKTOP_ENV"
 [ -n "$CMD_SYSTEM" ] && SYSTEM="$CMD_SYSTEM"
 [ -n "$CMD_SYSTEM_VERSION" ] && SYSTEM_VERSION="$CMD_SYSTEM_VERSION"
+[ -n "$CMD_WEBTOP_TYPE" ] && WEBTOP_TYPE="$CMD_WEBTOP_TYPE"
 
 # Set defaults
 VNC_PASSWD="${VNC_PASSWD:-$DEFAULT_VNC_PASSWORD}"
 DESKTOP_ENV="${DESKTOP_ENV:-xfce}"
 SYSTEM="${SYSTEM:-debian}"
+WEBTOP_TYPE="${WEBTOP_TYPE:-custom}"
+
+case "$WEBTOP_TYPE" in
+    custom|linuxserver) ;;
+    *)
+        echo "Unknown webtop type: $WEBTOP_TYPE"
+        print_available_webtop_types
+        exit 1
+        ;;
+esac
 
 # Default versions based on system
 if [ -z "$SYSTEM_VERSION" ]; then
@@ -265,6 +286,12 @@ fi
 
 BASE_TAG_PREFIX="${SYSTEM}-${SYSTEM_VERSION}-base"
 DESKTOP_TAG_PREFIX="${SYSTEM}-${SYSTEM_VERSION}-${DESKTOP_ENV}"
+if [ "$WEBTOP_TYPE" = "linuxserver" ]; then
+    WEBTOP_TAG="${SYSTEM}-${DESKTOP_ENV}"
+    WEBTOP_IMAGE="lscr.io/linuxserver/webtop:${WEBTOP_TAG}"
+    BASE_TAG_PREFIX="${WEBTOP_TYPE}-${WEBTOP_TAG}-base"
+    DESKTOP_TAG_PREFIX="${WEBTOP_TYPE}-${WEBTOP_TAG}"
+fi
 
 SHORT_BASE_TAG_PREFIX="$BASE_TAG_PREFIX"
 if is_default_system_version; then
@@ -280,6 +307,24 @@ if is_default_desktop; then
         SHORT_DESKTOP_TAG_PREFIX=""
     else
         SHORT_DESKTOP_TAG_PREFIX="${SYSTEM}-${SYSTEM_VERSION}"
+    fi
+fi
+if [ "$WEBTOP_TYPE" = "linuxserver" ]; then
+    SHORT_WEBTOP_TAG="$WEBTOP_TAG"
+    if [ "$SYSTEM" = "debian" ] && [ "$DESKTOP_ENV" = "xfce" ]; then
+        SHORT_WEBTOP_TAG=""
+    elif [ "$SYSTEM" = "debian" ]; then
+        SHORT_WEBTOP_TAG="$DESKTOP_ENV"
+    elif [ "$DESKTOP_ENV" = "xfce" ]; then
+        SHORT_WEBTOP_TAG="$SYSTEM"
+    fi
+
+    if [ -z "$SHORT_WEBTOP_TAG" ]; then
+        SHORT_BASE_TAG_PREFIX="${WEBTOP_TYPE}-base"
+        SHORT_DESKTOP_TAG_PREFIX="$WEBTOP_TYPE"
+    else
+        SHORT_BASE_TAG_PREFIX="${WEBTOP_TYPE}-${SHORT_WEBTOP_TAG}-base"
+        SHORT_DESKTOP_TAG_PREFIX="${WEBTOP_TYPE}-${SHORT_WEBTOP_TAG}"
     fi
 fi
 
@@ -372,6 +417,14 @@ case $SYSTEM in
     *) CONTAINER_USER="user" ;;
 esac
 CONTAINER_HOME="/home/${CONTAINER_USER}"
+CONTAINER_WEB_PORT="6080"
+CONTAINER_VNC_PORT="5901"
+if [ "$WEBTOP_TYPE" = "linuxserver" ]; then
+    CONTAINER_USER="abc"
+    CONTAINER_HOME="/config"
+    CONTAINER_WEB_PORT="3000"
+    CONTAINER_VNC_PORT="3001"
+fi
 
 # Prepend Docker Username to Image Name if set
 BASE_IMAGE_NAME="desktop-in-docker"
@@ -387,6 +440,46 @@ if [ "$PUBLISH" = true ] || [ "$EXECUTE_BUILD" = true ]; then
     else
         echo "China mirror mode: disabled"
     fi
+
+    if [ "$WEBTOP_TYPE" = "linuxserver" ]; then
+        WEBTOP_DOCKERFILE="docker/dockerfiles/webtop/linuxserver/${SYSTEM}.Dockerfile"
+        if [ ! -f "$WEBTOP_DOCKERFILE" ]; then
+            echo "Webtop Dockerfile not found for system '$SYSTEM': $WEBTOP_DOCKERFILE"
+            exit 1
+        fi
+
+        echo "Webtop type: linuxserver"
+        echo "Upstream webtop image: $WEBTOP_IMAGE"
+        echo "Building using $WEBTOP_DOCKERFILE"
+
+        WEBTOP_BASE_IMAGE_LOCAL_REF="$WEBTOP_IMAGE"
+        WEBTOP_BASE_IMAGE_PUBLISH_REF="$WEBTOP_IMAGE"
+        if [ "$ENABLE_CN_MIRROR" = true ]; then
+            WEBTOP_CN_DOCKERFILE="docker/dockerfiles/webtop/linuxserver/cn/${SYSTEM}_cn.Dockerfile"
+            if [ ! -f "$WEBTOP_CN_DOCKERFILE" ]; then
+                echo "Webtop CN Dockerfile not found for system '$SYSTEM': $WEBTOP_CN_DOCKERFILE"
+                exit 1
+            fi
+
+            WEBTOP_BASE_BUILD_TAGS=()
+            WEBTOP_BASE_BUILD_TAG_REASONS=()
+            append_standard_image_tags "$BASE_IMAGE_NAME" "$EFFECTIVE_BASE_TAG_PREFIX" "WEBTOP_BASE_BUILD_TAGS" "WEBTOP_BASE_BUILD_TAG_REASONS"
+            append_short_image_tags "$BASE_IMAGE_NAME" "$EFFECTIVE_BASE_TAG_PREFIX" "$EFFECTIVE_SHORT_BASE_TAG_PREFIX" "webtop mirror shorthand" "WEBTOP_BASE_BUILD_TAGS" "WEBTOP_BASE_BUILD_TAG_REASONS"
+
+            WEBTOP_BASE_IMAGE_LOCAL_REF="${BASE_IMAGE_NAME}:${EFFECTIVE_BASE_TAG_PREFIX}-${CURRENT_DATE}"
+            WEBTOP_BASE_IMAGE_PUBLISH_REF="${BASE_IMAGE_NAME}:${EFFECTIVE_BASE_TAG_PREFIX}-${CURRENT_DATE}"
+            echo "Webtop CN mirror Dockerfile: $WEBTOP_CN_DOCKERFILE"
+        fi
+
+        BUILD_TAGS=()
+        BUILD_TAG_REASONS=()
+        append_standard_image_tags "$IMAGE_NAME" "$EFFECTIVE_DESKTOP_TAG_PREFIX" "BUILD_TAGS" "BUILD_TAG_REASONS"
+        append_short_image_tags "$IMAGE_NAME" "$EFFECTIVE_DESKTOP_TAG_PREFIX" "$EFFECTIVE_SHORT_DESKTOP_TAG_PREFIX" "default system-version and/or desktop omitted" "BUILD_TAGS" "BUILD_TAG_REASONS"
+
+        BUILD_TAGS_FLAVOR=("${BUILD_TAGS[@]}")
+        BUILD_TAGS_FLAVOR_REASONS=("${BUILD_TAG_REASONS[@]}")
+        DOCKERFILE="$WEBTOP_DOCKERFILE"
+    else
     # Determine base dockerfile
     BASE_DOCKERFILE="docker/dockerfiles/base/Dockerfile"
     if [ -f "docker/dockerfiles/base/${SYSTEM}.Dockerfile" ]; then
@@ -501,11 +594,36 @@ if [ "$PUBLISH" = true ] || [ "$EXECUTE_BUILD" = true ]; then
 
     BUILD_TAGS_FLAVOR=("${BUILD_TAGS[@]}")
     BUILD_TAGS_FLAVOR_REASONS=("${BUILD_TAG_REASONS[@]}")
+    fi
 fi
 
 if [ "$PUBLISH" = true ]; then
     echo "Publisher mode enabled. Building and Pushing Multi-Arch Images (amd64, arm64)..."
 
+    if [ "$WEBTOP_TYPE" = "linuxserver" ]; then
+        if [ "$ENABLE_CN_MIRROR" = true ]; then
+            echo "Pushing webtop CN mirror image..."
+            docker buildx build \
+                --platform linux/amd64,linux/arm64 \
+                --build-arg WEBTOP_IMAGE="$WEBTOP_IMAGE" \
+                "${WEBTOP_BASE_BUILD_TAGS[@]}" \
+                --push \
+                -f "$WEBTOP_CN_DOCKERFILE" .
+        fi
+
+        docker buildx build \
+            --platform linux/amd64,linux/arm64 \
+            --build-arg WEBTOP_BASE_IMAGE="$WEBTOP_BASE_IMAGE_PUBLISH_REF" \
+            "${BUILD_TAGS_FLAVOR[@]}" \
+            --push \
+            -f "$DOCKERFILE" .
+
+        echo "Multi-arch webtop build and push finished."
+        if [ "$ENABLE_CN_MIRROR" = true ]; then
+            print_tag_summary "Webtop CN mirror image pushed variants:" "WEBTOP_BASE_BUILD_TAGS" "WEBTOP_BASE_BUILD_TAG_REASONS"
+        fi
+        print_tag_summary "Webtop image pushed variants:" "BUILD_TAGS_FLAVOR" "BUILD_TAGS_FLAVOR_REASONS"
+    else
     BASE_FROM_IMAGE_ARG=()
     if [ "$ENABLE_CN_MIRROR" = true ]; then
         echo "Pushing CN base image..."
@@ -561,25 +679,48 @@ if [ "$PUBLISH" = true ]; then
     if [ "$ENABLE_CN_MIRROR" = true ]; then
         print_tag_summary "CN image pushed variants:" "CN_PUBLISH_TAGS" "CN_PUBLISH_TAG_REASONS"
     fi
+    fi
     echo "Cleaning up dangling images..."
     docker image prune -f
 
 elif [ "$EXECUTE_BUILD" = true ]; then   
     echo "Building the Docker image locally for current architecture..."
     
-    docker build \
-        --build-arg BASE_IMAGE="${BASE_IMAGE_LOCAL_REF}" \
-        --build-arg DESKTOP_ENV="$DESKTOP_ENV" \
-        --build-arg USERNAME="$CONTAINER_USER" \
-        "${BUILD_TAGS_FLAVOR[@]}" \
-        -f "$DOCKERFILE" .
+    if [ "$WEBTOP_TYPE" = "linuxserver" ]; then
+        if [ "$ENABLE_CN_MIRROR" = true ]; then
+            echo "Building webtop CN mirror image from $WEBTOP_CN_DOCKERFILE..."
+            docker build \
+                "${WEBTOP_BASE_BUILD_TAGS[@]}" \
+                --build-arg WEBTOP_IMAGE="$WEBTOP_IMAGE" \
+                -f "$WEBTOP_CN_DOCKERFILE" .
+        fi
+
+        docker build \
+            --build-arg WEBTOP_BASE_IMAGE="$WEBTOP_BASE_IMAGE_LOCAL_REF" \
+            "${BUILD_TAGS_FLAVOR[@]}" \
+            -f "$DOCKERFILE" .
+    else
+        docker build \
+            --build-arg BASE_IMAGE="${BASE_IMAGE_LOCAL_REF}" \
+            --build-arg DESKTOP_ENV="$DESKTOP_ENV" \
+            --build-arg USERNAME="$CONTAINER_USER" \
+            "${BUILD_TAGS_FLAVOR[@]}" \
+            -f "$DOCKERFILE" .
+    fi
 
     echo "Docker image build process finished."
-    if [ "$ENABLE_CN_MIRROR" = true ]; then
+    if [ "$ENABLE_CN_MIRROR" = true ] && [ "$WEBTOP_TYPE" != "linuxserver" ]; then
         print_tag_summary "CN image created variants:" "CN_BUILD_TAGS" "CN_BUILD_TAG_REASONS"
     fi
-    print_tag_summary "Base image created variants:" "BASE_BUILD_TAGS" "BASE_BUILD_TAG_REASONS"
-    print_tag_summary "Desktop image created variants:" "BUILD_TAGS_FLAVOR" "BUILD_TAGS_FLAVOR_REASONS"
+    if [ "$WEBTOP_TYPE" = "linuxserver" ]; then
+        if [ "$ENABLE_CN_MIRROR" = true ]; then
+            print_tag_summary "Webtop CN mirror image created variants:" "WEBTOP_BASE_BUILD_TAGS" "WEBTOP_BASE_BUILD_TAG_REASONS"
+        fi
+        print_tag_summary "Webtop image created variants:" "BUILD_TAGS_FLAVOR" "BUILD_TAGS_FLAVOR_REASONS"
+    else
+        print_tag_summary "Base image created variants:" "BASE_BUILD_TAGS" "BASE_BUILD_TAG_REASONS"
+        print_tag_summary "Desktop image created variants:" "BUILD_TAGS_FLAVOR" "BUILD_TAGS_FLAVOR_REASONS"
+    fi
     echo "Cleaning up dangling images..."
     docker image prune -f
 fi
@@ -619,8 +760,10 @@ if [ "$START_CONTAINER" = true ]; then
     export DOCKER_USERNAME="${DOCKER_USERNAME:-storytellerf}"
     export IMAGE_TAG
     export CONTAINER_HOME
+    export CONTAINER_WEB_PORT
+    export CONTAINER_VNC_PORT
     export VNC_PASSWD
-    echo "Exported DOCKER_USERNAME=$DOCKER_USERNAME, IMAGE_TAG=$IMAGE_TAG, CONTAINER_HOME=$CONTAINER_HOME"
+    echo "Exported DOCKER_USERNAME=$DOCKER_USERNAME, IMAGE_TAG=$IMAGE_TAG, CONTAINER_HOME=$CONTAINER_HOME, CONTAINER_WEB_PORT=$CONTAINER_WEB_PORT, CONTAINER_VNC_PORT=$CONTAINER_VNC_PORT"
 
     # 启动并检查是否成功，如果成功显示下面的log
     COMPOSE_FILES="-f docker-compose.yml"
@@ -628,21 +771,25 @@ if [ "$START_CONTAINER" = true ]; then
     if docker compose $COMPOSE_FILES up -d --build; then
         echo "Docker compose started successfully."
         # 获取映射后的外部端口
-        WEB_PORT=$(docker compose port desktop 6080 2>/dev/null | cut -d':' -f2)
-        VNC_PORT=$(docker compose port desktop 5901 2>/dev/null | cut -d':' -f2)
+        WEB_PORT=$(docker compose port desktop "$CONTAINER_WEB_PORT" 2>/dev/null | cut -d':' -f2)
+        VNC_PORT=$(docker compose port desktop "$CONTAINER_VNC_PORT" 2>/dev/null | cut -d':' -f2)
         
         echo "You can access the desktop via:"
         if [ -n "$WEB_PORT" ]; then
-            echo "  - Web VNC: http://localhost:${WEB_PORT}/vnc.html"
+            if [ "$WEBTOP_TYPE" = "linuxserver" ]; then
+                echo "  - Webtop: http://localhost:${WEB_PORT}/"
+            else
+                echo "  - Web VNC: http://localhost:${WEB_PORT}/vnc.html"
+            fi
         else
-            echo "  - Web VNC mapping not found (port 6080)"
+            echo "  - Web mapping not found (port $CONTAINER_WEB_PORT)"
         fi
         
         if [ -n "$VNC_PORT" ]; then
             echo "  - VNC direct: localhost:${VNC_PORT}"
             echo "  - You can also run: ./vnc.sh to connect using vncviewer"
         else
-            echo "  - VNC direct mapping not found (port 5901)"
+            echo "  - VNC direct mapping not found (port $CONTAINER_VNC_PORT)"
         fi
     else
         echo "Failed to start docker compose."

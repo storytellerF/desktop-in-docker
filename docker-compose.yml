@@ -2,8 +2,10 @@ services:
   desktop:
     image: ${DOCKER_USERNAME:-storytellerf}/desktop-in-docker:${IMAGE_TAG:-snapshot}
     ports:
-      - "6080" # noVNC web interface
-      - "5901" # VNC direct connection
+      - "6080"
+      - "5901"
+      - "3000"
+      - "3001"
     environment:
       - VNC_GEOMETRY=1920x1080
       - VNC_DEPTH=24

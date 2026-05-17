@@ -54,6 +54,14 @@ docker compose port desktop 5901
 ./scripts/build-image.sh -b
 ```
 
+- 基于 LinuxServer Webtop 构建增强镜像（`system + desktop` 会组成上游 webtop tag，例如 `arch-xfce`）：
+
+```bash
+./scripts/build-image.sh --webtop-type linuxserver -s arch -d xfce -b
+```
+
+webtop 模式下切换系统和桌面仍然使用原来的参数名：`-s/--system` 与 `-d/--desktop`。
+
 - 构建后用 compose 启动（会输出可访问的 Web/VNC 地址）：
 
 ```bash
@@ -86,10 +94,18 @@ docker compose port desktop 5901
 
 ## 构建矩阵与镜像标签
 
-构建流程大致为：
+默认 `--webtop-type custom` 构建流程大致为：
 - 先构建 base 镜像（安装 TigerVNC、supervisor、noVNC/websockify 等基础依赖）
 - 再在 base 上安装指定桌面环境
 - 运行时用 supervisor 拉起 VNC 与 noVNC 服务，见 [supervisord.conf](file:///home/kx/Projects/desktop-in-docker/supervisord.conf)
+
+`--webtop-type linuxserver` 会改为直接基于上游 `lscr.io/linuxserver/webtop:<system>-<desktop>` 构建。系统和桌面继续用原来的 `-s/--system`、`-d/--desktop` 参数指定，例如：
+- `-s arch -d xfce` 使用 `lscr.io/linuxserver/webtop:arch-xfce`
+- `-s ubuntu -d kde` 使用 `lscr.io/linuxserver/webtop:ubuntu-kde`
+
+在 linuxserver webtop 模式下，本项目不会再安装桌面环境，只会在上游 webtop 镜像上增加 fcitx 输入法和一个用于启动 fcitx 的 supervisor 附加服务。系统值会继续用于选择包管理器和上游 tag。
+
+CN mirror 在 webtop 模式下是一个单独的中间镜像层，由 [docker/dockerfiles/webtop/linuxserver/cn/](/home/kx/Projects/desktop-in-docker/docker/dockerfiles/webtop/linuxserver/cn) 下对应系统的 Dockerfile 负责设置软件源；最终增强镜像再基于这个中间镜像安装 fcitx/supervisor。
 
 标签规则由 [scripts/build-image.sh](file:///home/kx/Projects/desktop-in-docker/scripts/build-image.sh) 自动生成，常见形式：
 - `<system>-<version>-<desktop>-snapshot`
@@ -97,11 +113,20 @@ docker compose port desktop 5901
 - `<system>-<version>-<desktop>-<timestamp>`
 - `-cn` 变体：根据时区自动启用，或用 `--cn-mirror/--no-cn-mirror` 强制控制
 
+linuxserver webtop 模式的标签会使用 `<webtop-type>-<system>-<desktop>` 前缀，例如 `linuxserver-arch-xfce-snapshot`。
+
+linuxserver webtop 模式保留简写标签，但不会省略 `linuxserver` 前缀：
+- `-s debian -d xfce` 会额外生成 `linuxserver-snapshot`
+- `-s debian -d kde` 会额外生成 `linuxserver-kde-snapshot`
+- `-s arch -d xfce` 会额外生成 `linuxserver-arch-snapshot`
+
 默认组合（debian:trixie + xfce）会生成简写标签：`desktop-in-docker:snapshot` / `desktop-in-docker:latest` 等。
 
 ## 目录结构
 
 - [docker/dockerfiles/](file:///home/kx/Projects/desktop-in-docker/docker/dockerfiles)：各发行版 base 与各桌面环境 Dockerfile
+- [docker/dockerfiles/webtop/linuxserver/](/home/kx/Projects/desktop-in-docker/docker/dockerfiles/webtop/linuxserver)：LinuxServer Webtop 按系统拆分的增强 Dockerfile
+- [docker/dockerfiles/webtop/linuxserver/cn/](/home/kx/Projects/desktop-in-docker/docker/dockerfiles/webtop/linuxserver/cn)：LinuxServer Webtop 按系统拆分的 CN mirror 中间镜像 Dockerfile
 - [user-config.dockerfrag](file:///home/kx/Projects/desktop-in-docker/user-config.dockerfrag)：构建时拼接进最终镜像的“用户侧片段”（拷贝脚本、暴露端口、设置 ENTRYPOINT）
 - [base-scripts/](file:///home/kx/Projects/desktop-in-docker/base-scripts)：容器内启动脚本（entrypoint、supervisord、VNC）
 - [supervisord.conf](file:///home/kx/Projects/desktop-in-docker/supervisord.conf)：启动 vnc/noVNC 的 supervisor 配置

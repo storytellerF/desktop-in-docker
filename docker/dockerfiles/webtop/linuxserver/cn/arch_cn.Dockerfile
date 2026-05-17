@@ -1,0 +1,19 @@
+ARG WEBTOP_IMAGE=lscr.io/linuxserver/webtop:arch-xfce
+FROM ${WEBTOP_IMAGE}
+
+USER root
+
+RUN pacman-key --init || true && \
+    pacman-key --populate archlinux && \
+    pacman -Sy --noconfirm --needed curl ca-certificates bash && \
+    pacman -Scc --noconfirm
+
+RUN curl -fsSL https://linuxmirrors.cn/main.sh | bash -s -- \
+    --source mirrors.aliyun.com \
+    --protocol https \
+    --use-intranet-source false \
+    --backup false \
+    --upgrade-software false \
+    --clean-cache false \
+    --lang en \
+    --pure-mode
