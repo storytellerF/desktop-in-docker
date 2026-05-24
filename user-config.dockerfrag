@@ -22,4 +22,4 @@ ENV SUPERVISOR_USER=$USERNAME
 # 5901: VNC Server (for display :1)
 EXPOSE 6080 5901
 
-ENTRYPOINT ["sh", "-c", "$HOME/bin/entrypoint.sh"]
+CMD ["sh", "-c", "$HOME/bin/entrypoint.sh"]
