@@ -3,10 +3,9 @@ ARG SYSTEM_VERSION=41
 ARG BASE_FROM_IMAGE=fedora:${SYSTEM_VERSION}
 FROM ${BASE_FROM_IMAGE}
 
-ARG SYSTEM_VERSION
-ARG OPENJDK_VERSION
 ARG TIMEZONE=UTC
 
+# __INJECT_BEFORE_DEPS__
 # Install Dependencies: VNC, Supervisor, noVNC, and other tools
 RUN dnf install -y \
     supervisor \

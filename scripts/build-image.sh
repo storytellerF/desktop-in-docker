@@ -477,6 +477,33 @@ if [ "$PUBLISH" = true ] || [ "$EXECUTE_BUILD" = true ]; then
         echo "China mirror mode: disabled"
     fi
 
+    INJECT_MARKER="__INJECT_BEFORE_DEPS__"
+
+    merge_base_with_injection() {
+        local base_file=$1
+        local output_file=$2
+        shift 2
+        local inject_files=("$@")
+        local injected=false
+
+        while IFS= read -r line || [ -n "$line" ]; do
+            echo "$line" >> "$output_file"
+            if [[ "$line" == *"$INJECT_MARKER"* ]]; then
+                injected=true
+                for inject_file in "${inject_files[@]}"; do
+                    echo "" >> "$output_file"
+                    echo "# Injected configuration - $(date)" >> "$output_file"
+                    echo "# Source: $inject_file" >> "$output_file"
+                    cat "$inject_file" >> "$output_file"
+                done
+            fi
+        done < "$base_file"
+
+        if [ "$injected" != true ] && [ "${#inject_files[@]}" -gt 0 ]; then
+            echo "Warning: injection marker '$INJECT_MARKER' not found in $base_file; injected fragments were not applied."
+        fi
+    }
+
     if [ "$WEBTOP_TYPE" = "linuxserver" ]; then
         echo "Building using $WEBTOP_MERGED_DOCKERFILE"
 
@@ -525,16 +552,51 @@ if [ "$PUBLISH" = true ] || [ "$EXECUTE_BUILD" = true ]; then
     USER_CONFIG_FILE="user-config.dockerfrag"
     FCITX_CONFIG_FILE="fcitx-config.dockerfrag"
     BUILD_DIR="build/custom"
-    MERGED_DOCKERFILE="${BUILD_DIR}/${SYSTEM}.Dockerfile"
+    if [ "$ENABLE_CN_MIRROR" = true ]; then
+        MERGED_DOCKERFILE="${BUILD_DIR}/${SYSTEM}_cn.Dockerfile"
+    else
+        MERGED_DOCKERFILE="${BUILD_DIR}/${SYSTEM}.Dockerfile"
+    fi
     
     if [ ! -f "$USER_CONFIG_FILE" ]; then
         echo "User config file not found: $USER_CONFIG_FILE"
         exit 1
     fi
 
-    if [ ! -f "$FCITX_CONFIG_FILE" ]; then
-        echo "Fcitx config file not found: $FCITX_CONFIG_FILE"
+    if [ "$ENABLE_CN_MIRROR" = true ] && [ ! -f "$FCITX_CONFIG_FILE" ]; then
+        echo "Fcitx config file not found (required in CN mirror mode): $FCITX_CONFIG_FILE"
         exit 1
+    fi
+
+    INJECT_FILES=()
+    if [ "$ENABLE_CN_MIRROR" = true ]; then
+        CN_DOCKERFRAG="docker/dockerfiles/base/cn/${SYSTEM}_cn.dockerfrag"
+        if [ ! -f "$CN_DOCKERFRAG" ]; then
+            CN_DOCKERFRAG="docker/dockerfiles/base/cn/debian_cn.dockerfrag"
+        fi
+        if [ ! -f "$CN_DOCKERFRAG" ]; then
+            echo "CN base dockerfrag not found for system '$SYSTEM': $CN_DOCKERFRAG"
+            exit 1
+        fi
+        INJECT_FILES+=("$CN_DOCKERFRAG")
+
+        if [ "$SYSTEM" = "debian" ]; then
+            TUNA_FIREFOX_DOCKERFRAG="docker/dockerfiles/base/cn/firefox-tuna.dockerfrag"
+            if [ ! -f "$TUNA_FIREFOX_DOCKERFRAG" ]; then
+                echo "TUNA Firefox dockerfrag not found: $TUNA_FIREFOX_DOCKERFRAG"
+                exit 1
+            fi
+            INJECT_FILES+=("$TUNA_FIREFOX_DOCKERFRAG")
+        fi
+    else
+        if [ "$SYSTEM" = "debian" ]; then
+            MOZILLA_FIREFOX_DOCKERFRAG="docker/dockerfiles/base/firefox-mozilla.dockerfrag"
+            if [ ! -f "$MOZILLA_FIREFOX_DOCKERFRAG" ]; then
+                echo "Mozilla Firefox dockerfrag not found: $MOZILLA_FIREFOX_DOCKERFRAG"
+                exit 1
+            fi
+            INJECT_FILES+=("$MOZILLA_FIREFOX_DOCKERFRAG")
+        fi
     fi
     
     echo "Merging Dockerfile into $MERGED_DOCKERFILE..."
@@ -542,16 +604,18 @@ if [ "$PUBLISH" = true ] || [ "$EXECUTE_BUILD" = true ]; then
     > "$MERGED_DOCKERFILE"
     echo "# Base system configuration - $(date)" >> "$MERGED_DOCKERFILE"
     echo "# Source: $BASE_DOCKERFILE" >> "$MERGED_DOCKERFILE"
-    cat "$BASE_DOCKERFILE" >> "$MERGED_DOCKERFILE"
+    merge_base_with_injection "$BASE_DOCKERFILE" "$MERGED_DOCKERFILE" "${INJECT_FILES[@]}"
     echo "" >> "$MERGED_DOCKERFILE"
     echo "# User configuration - $(date)" >> "$MERGED_DOCKERFILE"
     echo "# Source: $USER_CONFIG_FILE" >> "$MERGED_DOCKERFILE"
     cat "$USER_CONFIG_FILE" >> "$MERGED_DOCKERFILE"
 
-    echo "" >> "$MERGED_DOCKERFILE"
-    echo "# Fcitx configuration - $(date)" >> "$MERGED_DOCKERFILE"
-    echo "# Source: $FCITX_CONFIG_FILE" >> "$MERGED_DOCKERFILE"
-    cat "$FCITX_CONFIG_FILE" >> "$MERGED_DOCKERFILE"
+    if [ "$ENABLE_CN_MIRROR" = true ]; then
+        echo "" >> "$MERGED_DOCKERFILE"
+        echo "# Fcitx configuration - $(date)" >> "$MERGED_DOCKERFILE"
+        echo "# Source: $FCITX_CONFIG_FILE" >> "$MERGED_DOCKERFILE"
+        cat "$FCITX_CONFIG_FILE" >> "$MERGED_DOCKERFILE"
+    fi
     
     # Use the merged dockerfile for building base image
     BASE_DOCKERFILE="$MERGED_DOCKERFILE"
@@ -583,34 +647,6 @@ if [ "$PUBLISH" = true ] || [ "$EXECUTE_BUILD" = true ]; then
     BASE_IMAGE_PUBLISH_REF="${BASE_IMAGE_NAME}:${EFFECTIVE_BASE_TAG_PREFIX}-${CURRENT_DATE}"
 
     BASE_FROM_IMAGE_ARG=(--build-arg "BASE_FROM_IMAGE=${SYSTEM_BASE_FROM_IMAGE}")
-    if [ "$ENABLE_CN_MIRROR" = true ]; then
-        CN_DOCKERFILE="docker/dockerfiles/base/cn/${SYSTEM}_cn.Dockerfile"
-        if [ ! -f "$CN_DOCKERFILE" ]; then
-            CN_DOCKERFILE="docker/dockerfiles/base/cn/debian_cn.Dockerfile"
-        fi
-        if [ ! -f "$CN_DOCKERFILE" ]; then
-            echo "CN base Dockerfile not found for system '$SYSTEM': $CN_DOCKERFILE"
-            exit 1
-        fi
-
-        CN_BUILD_TAGS=()
-        CN_BUILD_TAG_REASONS=()
-        append_standard_image_tags "$BASE_IMAGE_NAME" "$CN_TAG_PREFIX" "CN_BUILD_TAGS" "CN_BUILD_TAG_REASONS"
-        append_short_image_tags "$BASE_IMAGE_NAME" "$CN_TAG_PREFIX" "$SHORT_CN_TAG_PREFIX" "default system-version omitted" "CN_BUILD_TAGS" "CN_BUILD_TAG_REASONS"
-
-        CN_IMAGE_LOCAL_REF="${BASE_IMAGE_NAME}:${CN_TAG_PREFIX}-${CURRENT_DATE}"
-        CN_IMAGE_PUBLISH_REF="${BASE_IMAGE_NAME}:${CN_TAG_PREFIX}-${CURRENT_DATE}"
-
-        echo "Building CN base image from $CN_DOCKERFILE..."
-        docker build \
-            "${CN_BUILD_TAGS[@]}" \
-            --build-arg SYSTEM="$SYSTEM" \
-            --build-arg SYSTEM_VERSION="$SYSTEM_VERSION" \
-            --build-arg BASE_FROM_IMAGE="$SYSTEM_BASE_FROM_IMAGE" \
-            -f "$CN_DOCKERFILE" .
-
-        BASE_FROM_IMAGE_ARG=(--build-arg "BASE_FROM_IMAGE=${CN_IMAGE_LOCAL_REF}")
-    fi
 
     echo "Building base image from $BASE_DOCKERFILE..."
     docker build \
@@ -660,24 +696,6 @@ if [ "$PUBLISH" = true ]; then
         print_tag_summary "Webtop image pushed variants:" "BUILD_TAGS_FLAVOR" "BUILD_TAGS_FLAVOR_REASONS"
     else
     BASE_FROM_IMAGE_ARG=(--build-arg "BASE_FROM_IMAGE=${SYSTEM_BASE_FROM_IMAGE}")
-    if [ "$ENABLE_CN_MIRROR" = true ]; then
-        echo "Pushing CN base image..."
-        CN_PUBLISH_TAGS=()
-        CN_PUBLISH_TAG_REASONS=()
-        append_standard_image_tags "$BASE_IMAGE_NAME" "$CN_TAG_PREFIX" "CN_PUBLISH_TAGS" "CN_PUBLISH_TAG_REASONS"
-        append_short_image_tags "$BASE_IMAGE_NAME" "$CN_TAG_PREFIX" "$SHORT_CN_TAG_PREFIX" "default system-version omitted" "CN_PUBLISH_TAGS" "CN_PUBLISH_TAG_REASONS"
-
-        docker buildx build \
-            --platform linux/amd64,linux/arm64 \
-            --build-arg SYSTEM="$SYSTEM" \
-            --build-arg SYSTEM_VERSION="$SYSTEM_VERSION" \
-            --build-arg BASE_FROM_IMAGE="$SYSTEM_BASE_FROM_IMAGE" \
-            "${CN_PUBLISH_TAGS[@]}" \
-            --push \
-            -f "$CN_DOCKERFILE" .
-
-        BASE_FROM_IMAGE_ARG=(--build-arg "BASE_FROM_IMAGE=${CN_IMAGE_PUBLISH_REF}")
-    fi
 
     # Push base image
     echo "Pushing base image..."
@@ -712,9 +730,6 @@ if [ "$PUBLISH" = true ]; then
 
     echo "Multi-arch build and push finished."
     print_tag_summary "Desktop image pushed variants:" "BUILD_TAGS_FLAVOR" "BUILD_TAGS_FLAVOR_REASONS"
-    if [ "$ENABLE_CN_MIRROR" = true ]; then
-        print_tag_summary "CN image pushed variants:" "CN_PUBLISH_TAGS" "CN_PUBLISH_TAG_REASONS"
-    fi
     fi
     echo "Cleaning up dangling images..."
     docker image prune -f
@@ -745,9 +760,6 @@ elif [ "$EXECUTE_BUILD" = true ]; then
     fi
 
     echo "Docker image build process finished."
-    if [ "$ENABLE_CN_MIRROR" = true ] && [ "$WEBTOP_TYPE" != "linuxserver" ]; then
-        print_tag_summary "CN image created variants:" "CN_BUILD_TAGS" "CN_BUILD_TAG_REASONS"
-    fi
     if [ "$WEBTOP_TYPE" = "linuxserver" ]; then
         if [ "$ENABLE_CN_MIRROR" = true ]; then
             print_tag_summary "Webtop CN mirror image created variants:" "WEBTOP_BASE_BUILD_TAGS" "WEBTOP_BASE_BUILD_TAG_REASONS"

@@ -3,11 +3,9 @@ ARG SYSTEM_VERSION=latest
 ARG BASE_FROM_IMAGE=alpine:${SYSTEM_VERSION}
 FROM ${BASE_FROM_IMAGE}
 
-ARG SYSTEM_VERSION
-ARG OPENJDK_VERSION
 ARG TIMEZONE=UTC
 
-# Set timezone for Alpine
+# __INJECT_BEFORE_DEPS__
 RUN apk add --no-cache tzdata && \
     cp /usr/share/zoneinfo/$TIMEZONE /etc/localtime && \
     echo $TIMEZONE > /etc/timezone && \

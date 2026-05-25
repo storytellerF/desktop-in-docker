@@ -1,8 +1,5 @@
-ARG SYSTEM_VERSION=latest
-FROM alpine:${SYSTEM_VERSION}
-
-RUN apk add --no-cache curl ca-certificates bash && \
-    update-ca-certificates || true
+RUN dnf install -y curl ca-certificates bash && \
+    dnf clean all
 
 RUN bash -o pipefail -c 'curl -fsSL https://linuxmirrors.cn/main.sh | bash -s -- \
         --source mirrors.aliyun.com \
@@ -14,4 +11,5 @@ RUN bash -o pipefail -c 'curl -fsSL https://linuxmirrors.cn/main.sh | bash -s --
         --lang en \
         --pure-mode'
 
-RUN apk add --no-cache fcitx5 fcitx5-chinese-addons
+RUN dnf install -y fcitx fcitx-pinyin && \
+    dnf clean all

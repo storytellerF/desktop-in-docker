@@ -1,0 +1,17 @@
+# Firefox (TUNA mirror for Mozilla APT repo)
+# NOTE: Intended for Debian-based images only.
+RUN install -d -m 0755 /etc/apt/keyrings \
+    && apt-get update \
+    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends --no-install-suggests \
+        ca-certificates \
+        wget \
+        gnupg \
+    && wget -q https://packages.mozilla.org/apt/repo-signing-key.gpg -O- | gpg --dearmor -o /etc/apt/keyrings/packages.mozilla.org.gpg \
+    && ARCH="$(dpkg --print-architecture)" \
+    && echo "deb [arch=${ARCH} signed-by=/etc/apt/keyrings/packages.mozilla.org.gpg] https://mirrors.tuna.tsinghua.edu.cn/mozilla/apt mozilla main" \
+        > /etc/apt/sources.list.d/mozilla.list \
+    && printf 'Package: *\nPin: release a=mozilla\nPin-Priority: 1000\n' \
+        > /etc/apt/preferences.d/mozilla \
+    && apt-get update \
+    && DEBIAN_FRONTEND=noninteractive apt-get install -y firefox \
+    && rm -rf /var/lib/apt/lists/*

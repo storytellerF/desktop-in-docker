@@ -4,10 +4,9 @@ ARG SYSTEM_VERSION=latest
 ARG BASE_FROM_IMAGE=archlinux:${SYSTEM_VERSION}
 FROM ${BASE_FROM_IMAGE}
 
-ARG SYSTEM_VERSION
-ARG OPENJDK_VERSION
 ARG TIMEZONE=UTC
 
+# __INJECT_BEFORE_DEPS__
 # Initialize pacman keyring first (required in Docker), then install dependencies
 RUN pacman-key --init && \
     pacman-key --populate archlinux && \
