@@ -11,3 +11,9 @@ RUN curl -fsSL https://linuxmirrors.cn/main.sh | bash -s -- \
     --clean-cache false \
     --lang en \
     --pure-mode
+
+RUN apt-get update && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        fcitx \
+        fcitx-googlepinyin && \
+    rm -rf /var/lib/apt/lists/*

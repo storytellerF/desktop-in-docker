@@ -7,7 +7,5 @@ USER root
 RUN pacman-key --init || true && \
     pacman-key --populate archlinux && \
     pacman -Sy --noconfirm --needed \
-        supervisor \
-        fcitx5 \
-        fcitx5-chinese-addons && \
+        supervisor && \
     pacman -Scc --noconfirm

@@ -5,6 +5,4 @@ USER root
 
 # __INJECT_BEFORE_DEPS__
 RUN apk add --no-cache \
-        supervisor \
-        fcitx5 \
-        fcitx5-chinese-addons
+        supervisor
