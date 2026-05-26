@@ -80,6 +80,28 @@ webtop 模式下切换系统和桌面仍然使用原来的参数名：`-s/--syst
 ./scripts/vnc.sh
 ```
 
+## 脚本测试（Fake Docker）
+
+仓库提供了一个假的 Docker 命令 [tests/fakes/docker](/home/kx/Projects/desktop-in-docker/tests/fakes/docker)，用于验证构建脚本生成的 Docker 调用，而不实际构建镜像或启动容器。
+
+```bash
+./tests/verify-fake-docker.sh
+```
+
+也可以手动把 fake Docker 放到 `PATH` 前面，只验证某一条命令：
+
+```bash
+FAKE_DOCKER_LOG=/tmp/desktop-in-docker-fake-docker.log PATH="$PWD/tests/fakes:$PATH" ./scripts/build-image.sh -b --no-cn-mirror
+```
+
+查看记录到的 Docker 调用：
+
+```bash
+cat /tmp/desktop-in-docker-fake-docker.log
+```
+
+需要测试失败路径时，可用逗号分隔的 `FAKE_DOCKER_FAIL_COMMANDS` 指定要失败的命令，例如 `build`、`buildx-build`、`image-prune`、`compose-up`、`compose-down`、`compose-port`。
+
 ## 配置项
 
 **VNC 密码**

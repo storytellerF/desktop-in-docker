@@ -1,0 +1,107 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+log_file="${FAKE_DOCKER_LOG:-${TMPDIR:-/tmp}/desktop-in-docker-fake-docker.log}"
+state_dir="${FAKE_DOCKER_STATE_DIR:-${TMPDIR:-/tmp}/desktop-in-docker-fake-docker}"
+mkdir -p "$(dirname "$log_file")" "$state_dir"
+
+quote_arg() {
+    printf '%q' "$1"
+}
+
+record_command() {
+    {
+        printf 'docker'
+        for arg in "$@"; do
+            printf ' '
+            quote_arg "$arg"
+        done
+        printf '\n'
+    } >> "$log_file"
+}
+
+fail_if_requested() {
+    local key=$1
+    local fail_list=",${FAKE_DOCKER_FAIL_COMMANDS:-},"
+    if [[ "$fail_list" == *",$key,"* ]]; then
+        echo "fake docker: forced failure for $key" >&2
+        exit "${FAKE_DOCKER_FAIL_EXIT_CODE:-1}"
+    fi
+}
+
+record_command "$@"
+
+command="${1:-}"
+case "$command" in
+    build)
+        fail_if_requested "build"
+        echo "fake docker: build ${*:2}"
+        ;;
+    buildx)
+        subcommand="${2:-}"
+        fail_if_requested "buildx"
+        if [ "$subcommand" = "build" ]; then
+            fail_if_requested "buildx-build"
+            echo "fake docker: buildx build ${*:3}"
+        else
+            echo "fake docker: unsupported buildx subcommand '$subcommand'" >&2
+            exit 64
+        fi
+        ;;
+    image)
+        subcommand="${2:-}"
+        fail_if_requested "image"
+        if [ "$subcommand" = "prune" ]; then
+            fail_if_requested "image-prune"
+            echo "Total reclaimed space: 0B"
+        else
+            echo "fake docker: unsupported image subcommand '$subcommand'" >&2
+            exit 64
+        fi
+        ;;
+    compose)
+        subcommand=""
+        for arg in "${@:2}"; do
+            if [[ "$arg" == -* ]]; then
+                continue
+            fi
+            if [ "$arg" = "docker-compose.yml" ]; then
+                continue
+            fi
+            subcommand="$arg"
+            break
+        done
+
+        fail_if_requested "compose"
+        case "$subcommand" in
+            up)
+                fail_if_requested "compose-up"
+                echo "fake docker: compose up"
+                ;;
+            down)
+                fail_if_requested "compose-down"
+                echo "fake docker: compose down"
+                ;;
+            port)
+                fail_if_requested "compose-port"
+                port="${@: -1}"
+                case "$port" in
+                    6080|3000) echo "0.0.0.0:${FAKE_DOCKER_WEB_PORT:-16080}" ;;
+                    5901|3001) echo "0.0.0.0:${FAKE_DOCKER_VNC_PORT:-15901}" ;;
+                    *) echo "0.0.0.0:${FAKE_DOCKER_PORT:-10000}" ;;
+                esac
+                ;;
+            *)
+                echo "fake docker: unsupported compose command '$*'" >&2
+                exit 64
+                ;;
+        esac
+        ;;
+    --version|version)
+        echo "Docker version 99.0.0, fake"
+        ;;
+    *)
+        echo "fake docker: unsupported command '$*'" >&2
+        exit 64
+        ;;
+esac
