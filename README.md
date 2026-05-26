@@ -9,6 +9,11 @@
 - 发行版：debian / ubuntu / fedora / arch / alpine
 - 桌面：xfce / lxqt / kde / mate / cinnamon / lxde / gnome / enlightenment
 
+当前禁用矩阵：
+- `--image-variant x11 -s arch` 不支持；Arch 请使用 `--image-variant webtop`，或在 x11 下选择其他发行版。
+- `--image-variant x11 -s ubuntu` 只支持 `noble` / `24.04` 或更早版本；例如 `plucky`、`questing`、`latest` 不允许。
+- `--image-variant wayland` 已预留参数但尚未实现。
+
 ## 快速开始（Docker Compose）
 
 1) 建议先创建 `.env`（至少设置 VNC 密码）：

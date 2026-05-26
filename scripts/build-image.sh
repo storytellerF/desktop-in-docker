@@ -94,12 +94,47 @@ print_available_image_variants() {
     echo "Available image variants: x11, wayland, webtop"
 }
 
+print_available_systems() {
+    echo "Available systems: debian, ubuntu, fedora, arch, alpine"
+}
+
 is_default_system_version() {
     [ "$SYSTEM" = "debian" ] && [ "$SYSTEM_VERSION" = "trixie" ]
 }
 
 is_default_desktop() {
     [ "$DESKTOP_ENV" = "xfce" ]
+}
+
+is_supported_ubuntu_x11_version() {
+    case "$SYSTEM_VERSION" in
+        trusty|xenial|bionic|focal|jammy|kinetic|lunar|mantic|noble) return 0 ;;
+        14.04|16.04|18.04|20.04|22.04|22.10|23.04|23.10|24.04) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+validate_build_matrix() {
+    case "$SYSTEM" in
+        debian|ubuntu|fedora|arch|alpine) ;;
+        *)
+            echo "Unsupported system: $SYSTEM"
+            print_available_systems
+            exit 1
+            ;;
+    esac
+
+    if [ "$IMAGE_VARIANT" = "x11" ] && [ "$SYSTEM" = "arch" ]; then
+        echo "Unsupported build matrix: --image-variant x11 does not support --system arch."
+        echo "Use --image-variant webtop with --system arch, or choose debian/ubuntu/fedora/alpine for x11."
+        exit 1
+    fi
+
+    if [ "$IMAGE_VARIANT" = "x11" ] && [ "$SYSTEM" = "ubuntu" ] && ! is_supported_ubuntu_x11_version; then
+        echo "Unsupported build matrix: --image-variant x11 with --system ubuntu supports noble/24.04 or earlier only."
+        echo "Requested Ubuntu version: $SYSTEM_VERSION"
+        exit 1
+    fi
 }
 
 append_standard_image_tags() {
@@ -288,6 +323,8 @@ if [ -z "$SYSTEM_VERSION" ]; then
         *) SYSTEM_VERSION="latest" ;;
     esac
 fi
+
+validate_build_matrix
 
 BASE_TAG_PREFIX="${SYSTEM}-${SYSTEM_VERSION}-base"
 DESKTOP_TAG_PREFIX="${SYSTEM}-${SYSTEM_VERSION}-${DESKTOP_ENV}"

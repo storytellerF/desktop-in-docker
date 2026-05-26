@@ -8,9 +8,11 @@ build_log="$work_dir/docker-build.log"
 start_log="$work_dir/docker-start.log"
 webtop_log="$work_dir/docker-webtop.log"
 webtop_cn_log="$work_dir/docker-webtop-cn.log"
+invalid_arch_x11_log="$work_dir/invalid-arch-x11.log"
+invalid_ubuntu_x11_log="$work_dir/invalid-ubuntu-x11.log"
 
 mkdir -p "$work_dir"
-rm -f "$build_log" "$start_log" "$webtop_log" "$webtop_cn_log"
+rm -f "$build_log" "$start_log" "$webtop_log" "$webtop_cn_log" "$invalid_arch_x11_log" "$invalid_ubuntu_x11_log"
 
 run_with_fake_docker() {
     local log_file=$1
@@ -19,6 +21,33 @@ run_with_fake_docker() {
     PATH="$fake_docker_dir:$PATH" \
     FAKE_DOCKER_LOG="$log_file" \
     "$@"
+}
+
+assert_command_fails() {
+    local log_file=$1
+    local expected_output=$2
+    shift 2
+    local output_file="${log_file}.out"
+
+    if run_with_fake_docker "$log_file" "$@" >"$output_file" 2>&1; then
+        echo "Expected command to fail: $*" >&2
+        echo "--- $output_file ---" >&2
+        cat "$output_file" >&2
+        exit 1
+    fi
+
+    if ! grep -Fq -- "$expected_output" "$output_file"; then
+        echo "Expected command output to contain: $expected_output" >&2
+        echo "--- $output_file ---" >&2
+        cat "$output_file" >&2
+        exit 1
+    fi
+
+    if [ -s "$log_file" ]; then
+        echo "Expected no docker calls for failed command, got:" >&2
+        cat "$log_file" >&2
+        exit 1
+    fi
 }
 
 assert_log_contains() {
@@ -61,6 +90,10 @@ assert_log_line_count() {
 }
 
 cd "$repo_root"
+
+echo "Verifying invalid matrix failures..."
+assert_command_fails "$invalid_arch_x11_log" "x11 does not support --system arch" ./scripts/build-image.sh -b -s arch --no-cn-mirror
+assert_command_fails "$invalid_ubuntu_x11_log" "supports noble/24.04 or earlier only" ./scripts/build-image.sh -b -s ubuntu -v plucky --no-cn-mirror
 
 echo "Verifying fake docker build path..."
 run_with_fake_docker "$build_log" ./scripts/build-image.sh -b --no-cn-mirror
