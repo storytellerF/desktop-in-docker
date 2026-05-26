@@ -67,13 +67,13 @@ run_with_fake_docker "$build_log" ./scripts/build-image.sh -b --no-cn-mirror
 
 assert_log_contains "$build_log" "docker build"
 assert_log_contains "$build_log" "--build-arg BASE_FROM_IMAGE=debian:trixie"
-assert_log_contains "$build_log" "-f build/custom/debian.Dockerfile"
+assert_log_contains "$build_log" "-f build/x11/debian.Dockerfile"
 assert_log_contains "$build_log" "--build-arg BASE_IMAGE="
 assert_log_contains "$build_log" "-f docker/dockerfiles/xfce/debian.Dockerfile"
 assert_log_contains "$build_log" "docker image prune -f"
 
 echo "Verifying fake docker webtop build path..."
-run_with_fake_docker "$webtop_log" ./scripts/build-image.sh --webtop-type linuxserver -s arch -d xfce -b --no-cn-mirror
+run_with_fake_docker "$webtop_log" ./scripts/build-image.sh --image-variant webtop -s arch -d xfce -b --no-cn-mirror
 
 assert_log_contains "$webtop_log" "docker build"
 assert_log_contains "$webtop_log" "--build-arg WEBTOP_BASE_IMAGE=lscr.io/linuxserver/webtop:arch-xfce"
@@ -82,7 +82,7 @@ assert_log_not_contains "$webtop_log" "-f build/webtop/arch_cn.Dockerfile"
 assert_log_contains "$webtop_log" "docker image prune -f"
 
 echo "Verifying fake docker webtop CN single-stage build path..."
-run_with_fake_docker "$webtop_cn_log" ./scripts/build-image.sh --webtop-type linuxserver -s debian -d xfce -b --cn-mirror
+run_with_fake_docker "$webtop_cn_log" ./scripts/build-image.sh --image-variant webtop -s debian -d xfce -b --cn-mirror
 
 assert_log_line_count "$webtop_cn_log" 1 "docker build "
 assert_log_contains "$webtop_cn_log" "--build-arg WEBTOP_BASE_IMAGE=lscr.io/linuxserver/webtop:debian-xfce"

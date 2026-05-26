@@ -19,7 +19,7 @@ usage() {
     echo "  -P, --publish                Build and Push multi-arch images to Docker Hub (requires docker login)"
     echo "  -m, --multi-arch             Enable multi-arch mode (builds/pushes for amd64 and arm64)"
     echo "  -d, --desktop <desktop>      Specify the desktop environment; in webtop mode selects the upstream tag desktop (xfce, lxqt, kde, mate, cinnamon, lxde, gnome, enlightenment) (default: xfce)"
-    echo "  -w, --webtop-type <type>     Specify build backend (custom, linuxserver) (default: custom)"
+    echo "  -i, --image-variant <variant> Specify the image variant (x11, wayland, webtop) (default: x11)"
     echo "  --cn-mirror                  Force China mirror mode (CN tags + build-time package mirrors)"
     echo "  --no-cn-mirror               Disable China mirror mode"
     echo "  --latest                     Tag the image as 'latest'"
@@ -90,8 +90,8 @@ print_available_desktops() {
     echo "Available desktop environments: xfce, lxqt, kde, mate, cinnamon, lxde, gnome, enlightenment"
 }
 
-print_available_webtop_types() {
-    echo "Available webtop types: custom, linuxserver"
+print_available_image_variants() {
+    echo "Available image variants: x11, wayland, webtop"
 }
 
 is_default_system_version() {
@@ -171,7 +171,7 @@ CMD_DESKTOP_ENV=""
 CMD_SYSTEM=""
 CMD_SYSTEM_VERSION=""
 CMD_CN_MIRROR_MODE=""
-CMD_WEBTOP_TYPE=""
+CMD_IMAGE_VARIANT=""
 TAG_LATEST=false
 TAG_SNAPSHOT=true
 
@@ -223,8 +223,8 @@ while [[ "$#" -gt 0 ]]; do
             CMD_DESKTOP_ENV="$2"
             shift
             ;;
-        -w|--webtop-type)
-            CMD_WEBTOP_TYPE="$2"
+        -i|--image-variant|--variant)
+            CMD_IMAGE_VARIANT="$2"
             shift
             ;;
         -h|--help)
@@ -255,22 +255,27 @@ IMAGE_TIMESTAMP="${IMAGE_TIMESTAMP:-$CURRENT_DATE}"
 [ -n "$CMD_DESKTOP_ENV" ] && DESKTOP_ENV="$CMD_DESKTOP_ENV"
 [ -n "$CMD_SYSTEM" ] && SYSTEM="$CMD_SYSTEM"
 [ -n "$CMD_SYSTEM_VERSION" ] && SYSTEM_VERSION="$CMD_SYSTEM_VERSION"
-[ -n "$CMD_WEBTOP_TYPE" ] && WEBTOP_TYPE="$CMD_WEBTOP_TYPE"
+[ -n "$CMD_IMAGE_VARIANT" ] && IMAGE_VARIANT="$CMD_IMAGE_VARIANT"
 
 # Set defaults
 VNC_PASSWD="${VNC_PASSWD:-$DEFAULT_VNC_PASSWORD}"
 DESKTOP_ENV="${DESKTOP_ENV:-xfce}"
 SYSTEM="${SYSTEM:-debian}"
-WEBTOP_TYPE="${WEBTOP_TYPE:-custom}"
+IMAGE_VARIANT="${IMAGE_VARIANT:-x11}"
 
-case "$WEBTOP_TYPE" in
-    custom|linuxserver) ;;
+case "$IMAGE_VARIANT" in
+    x11|wayland|webtop) ;;
     *)
-        echo "Unknown webtop type: $WEBTOP_TYPE"
-        print_available_webtop_types
+        echo "Unknown image variant: $IMAGE_VARIANT"
+        print_available_image_variants
         exit 1
         ;;
 esac
+
+if [ "$IMAGE_VARIANT" = "wayland" ]; then
+    echo "Wayland image variant is recognized but not implemented yet."
+    exit 1
+fi
 
 # Default versions based on system
 if [ -z "$SYSTEM_VERSION" ]; then
@@ -286,11 +291,11 @@ fi
 
 BASE_TAG_PREFIX="${SYSTEM}-${SYSTEM_VERSION}-base"
 DESKTOP_TAG_PREFIX="${SYSTEM}-${SYSTEM_VERSION}-${DESKTOP_ENV}"
-if [ "$WEBTOP_TYPE" = "linuxserver" ]; then
+if [ "$IMAGE_VARIANT" = "webtop" ]; then
     WEBTOP_TAG="${SYSTEM}-${DESKTOP_ENV}"
     WEBTOP_IMAGE="lscr.io/linuxserver/webtop:${WEBTOP_TAG}"
-    BASE_TAG_PREFIX="${WEBTOP_TYPE}-${WEBTOP_TAG}-base"
-    DESKTOP_TAG_PREFIX="${WEBTOP_TYPE}-${WEBTOP_TAG}"
+    BASE_TAG_PREFIX="webtop-${WEBTOP_TAG}-base"
+    DESKTOP_TAG_PREFIX="webtop-${WEBTOP_TAG}"
 fi
 
 case "$SYSTEM" in
@@ -314,7 +319,7 @@ if is_default_desktop; then
         SHORT_DESKTOP_TAG_PREFIX="${SYSTEM}-${SYSTEM_VERSION}"
     fi
 fi
-if [ "$WEBTOP_TYPE" = "linuxserver" ]; then
+if [ "$IMAGE_VARIANT" = "webtop" ]; then
     SHORT_WEBTOP_TAG="$WEBTOP_TAG"
     if [ "$SYSTEM" = "debian" ] && [ "$DESKTOP_ENV" = "xfce" ]; then
         SHORT_WEBTOP_TAG=""
@@ -325,11 +330,11 @@ if [ "$WEBTOP_TYPE" = "linuxserver" ]; then
     fi
 
     if [ -z "$SHORT_WEBTOP_TAG" ]; then
-        SHORT_BASE_TAG_PREFIX="${WEBTOP_TYPE}-base"
-        SHORT_DESKTOP_TAG_PREFIX="$WEBTOP_TYPE"
+        SHORT_BASE_TAG_PREFIX="webtop-base"
+        SHORT_DESKTOP_TAG_PREFIX="webtop"
     else
-        SHORT_BASE_TAG_PREFIX="${WEBTOP_TYPE}-${SHORT_WEBTOP_TAG}-base"
-        SHORT_DESKTOP_TAG_PREFIX="${WEBTOP_TYPE}-${SHORT_WEBTOP_TAG}"
+        SHORT_BASE_TAG_PREFIX="webtop-${SHORT_WEBTOP_TAG}-base"
+        SHORT_DESKTOP_TAG_PREFIX="webtop-${SHORT_WEBTOP_TAG}"
     fi
 fi
 
@@ -424,7 +429,7 @@ esac
 CONTAINER_HOME="/home/${CONTAINER_USER}"
 CONTAINER_WEB_PORT="6080"
 CONTAINER_VNC_PORT="5901"
-if [ "$WEBTOP_TYPE" = "linuxserver" ]; then
+if [ "$IMAGE_VARIANT" = "webtop" ]; then
     CONTAINER_USER="abc"
     CONTAINER_HOME="/config"
     CONTAINER_WEB_PORT="3000"
@@ -465,12 +470,12 @@ merge_base_with_injection() {
     fi
 }
 
-if [ "$WEBTOP_TYPE" = "linuxserver" ]; then
-    WEBTOP_DOCKERFILE="docker/dockerfiles/webtop/linuxserver/${SYSTEM}.Dockerfile"
+if [ "$IMAGE_VARIANT" = "webtop" ]; then
+    WEBTOP_DOCKERFILE="docker/dockerfiles/webtop/${SYSTEM}.Dockerfile"
     if [ ! -f "$WEBTOP_DOCKERFILE" ]; then
-        WEBTOP_DOCKERFILE="docker/dockerfiles/webtop/linuxserver/debian.Dockerfile"
+        WEBTOP_DOCKERFILE="docker/dockerfiles/webtop/debian.Dockerfile"
     fi
-    WEBTOP_CONFIG_FILE="docker/dockerfiles/fragments/webtop/linuxserver-config.dockerfrag"
+    WEBTOP_CONFIG_FILE="docker/dockerfiles/fragments/webtop/config.dockerfrag"
     WEBTOP_BUILD_DIR="build/webtop"
     if [ "$ENABLE_CN_MIRROR" = true ]; then
         WEBTOP_MERGED_DOCKERFILE="${WEBTOP_BUILD_DIR}/${SYSTEM}_cn.Dockerfile"
@@ -488,9 +493,9 @@ if [ "$WEBTOP_TYPE" = "linuxserver" ]; then
 
     WEBTOP_INJECT_FILES=()
     if [ "$ENABLE_CN_MIRROR" = true ]; then
-        WEBTOP_CN_DOCKERFRAG="docker/dockerfiles/fragments/webtop/linuxserver/cn/${SYSTEM}_cn.dockerfrag"
+        WEBTOP_CN_DOCKERFRAG="docker/dockerfiles/fragments/webtop/cn/${SYSTEM}_cn.dockerfrag"
         if [ ! -f "$WEBTOP_CN_DOCKERFRAG" ]; then
-            WEBTOP_CN_DOCKERFRAG="docker/dockerfiles/fragments/webtop/linuxserver/cn/debian_cn.dockerfrag"
+            WEBTOP_CN_DOCKERFRAG="docker/dockerfiles/fragments/webtop/cn/debian_cn.dockerfrag"
         fi
         if [ ! -f "$WEBTOP_CN_DOCKERFRAG" ]; then
             echo "Webtop CN dockerfrag not found for system '$SYSTEM': $WEBTOP_CN_DOCKERFRAG"
@@ -499,7 +504,7 @@ if [ "$WEBTOP_TYPE" = "linuxserver" ]; then
         WEBTOP_INJECT_FILES+=("$WEBTOP_CN_DOCKERFRAG")
     fi
 
-    echo "Webtop type: linuxserver"
+    echo "Image variant: webtop"
     echo "Upstream webtop image: $WEBTOP_IMAGE"
     echo "Merging webtop Dockerfile into $WEBTOP_MERGED_DOCKERFILE..."
     mkdir -p "$WEBTOP_BUILD_DIR"
@@ -521,7 +526,7 @@ if [ "$PUBLISH" = true ] || [ "$EXECUTE_BUILD" = true ]; then
         echo "China mirror mode: disabled"
     fi
 
-    if [ "$WEBTOP_TYPE" = "linuxserver" ]; then
+    if [ "$IMAGE_VARIANT" = "webtop" ]; then
         echo "Building using $WEBTOP_MERGED_DOCKERFILE"
 
         BUILD_TAGS=()
@@ -546,7 +551,7 @@ if [ "$PUBLISH" = true ] || [ "$EXECUTE_BUILD" = true ]; then
     # Merge base dockerfile with custom and fcitx docker fragments.
     USER_CONFIG_FILE="docker/dockerfiles/fragments/custom/user-config.dockerfrag"
     FCITX_CONFIG_FILE="docker/dockerfiles/fragments/custom/fcitx-config.dockerfrag"
-    BUILD_DIR="build/custom"
+    BUILD_DIR="build/x11"
     if [ "$ENABLE_CN_MIRROR" = true ]; then
         MERGED_DOCKERFILE="${BUILD_DIR}/${SYSTEM}_cn.Dockerfile"
     else
@@ -666,7 +671,7 @@ fi
 if [ "$PUBLISH" = true ]; then
     echo "Publisher mode enabled. Building and Pushing Multi-Arch Images (amd64, arm64)..."
 
-    if [ "$WEBTOP_TYPE" = "linuxserver" ]; then
+    if [ "$IMAGE_VARIANT" = "webtop" ]; then
         docker buildx build \
             --platform linux/amd64,linux/arm64 \
             --build-arg WEBTOP_BASE_IMAGE="$WEBTOP_IMAGE" \
@@ -719,7 +724,7 @@ if [ "$PUBLISH" = true ]; then
 elif [ "$EXECUTE_BUILD" = true ]; then   
     echo "Building the Docker image locally for current architecture..."
     
-    if [ "$WEBTOP_TYPE" = "linuxserver" ]; then
+    if [ "$IMAGE_VARIANT" = "webtop" ]; then
         docker build \
             --build-arg WEBTOP_BASE_IMAGE="$WEBTOP_IMAGE" \
             "${BUILD_TAGS_FLAVOR[@]}" \
@@ -734,7 +739,7 @@ elif [ "$EXECUTE_BUILD" = true ]; then
     fi
 
     echo "Docker image build process finished."
-    if [ "$WEBTOP_TYPE" = "linuxserver" ]; then
+    if [ "$IMAGE_VARIANT" = "webtop" ]; then
         print_tag_summary "Webtop image created variants:" "BUILD_TAGS_FLAVOR" "BUILD_TAGS_FLAVOR_REASONS"
     else
         print_tag_summary "Base image created variants:" "BASE_BUILD_TAGS" "BASE_BUILD_TAG_REASONS"
@@ -795,7 +800,7 @@ if [ "$START_CONTAINER" = true ]; then
         
         echo "You can access the desktop via:"
         if [ -n "$WEB_PORT" ]; then
-            if [ "$WEBTOP_TYPE" = "linuxserver" ]; then
+            if [ "$IMAGE_VARIANT" = "webtop" ]; then
                 echo "  - Webtop: http://localhost:${WEB_PORT}/"
             else
                 echo "  - Web VNC: http://localhost:${WEB_PORT}/vnc.html"
