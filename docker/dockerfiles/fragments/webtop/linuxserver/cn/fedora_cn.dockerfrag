@@ -1,9 +1,5 @@
-ARG WEBTOP_IMAGE=lscr.io/linuxserver/webtop:alpine-xfce
-FROM ${WEBTOP_IMAGE}
-
-USER root
-
-RUN apk add --no-cache curl ca-certificates bash
+RUN dnf install -y curl ca-certificates bash && \
+    dnf clean all
 
 RUN curl -fsSL https://linuxmirrors.cn/main.sh | bash -s -- \
     --source mirrors.aliyun.com \

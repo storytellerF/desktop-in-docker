@@ -438,6 +438,33 @@ if [ -n "$DOCKER_USERNAME" ]; then
     BASE_IMAGE_NAME="${DOCKER_USERNAME}/${BASE_IMAGE_NAME}"
 fi
 
+INJECT_MARKER="__INJECT_BEFORE_DEPS__"
+
+merge_base_with_injection() {
+    local base_file=$1
+    local output_file=$2
+    shift 2
+    local inject_files=("$@")
+    local injected=false
+
+    while IFS= read -r line || [ -n "$line" ]; do
+        echo "$line" >> "$output_file"
+        if [[ "$line" == *"$INJECT_MARKER"* ]]; then
+            injected=true
+            for inject_file in "${inject_files[@]}"; do
+                echo "" >> "$output_file"
+                echo "# Injected configuration - $(date)" >> "$output_file"
+                echo "# Source: $inject_file" >> "$output_file"
+                cat "$inject_file" >> "$output_file"
+            done
+        fi
+    done < "$base_file"
+
+    if [ "$injected" != true ] && [ "${#inject_files[@]}" -gt 0 ]; then
+        echo "Warning: injection marker '$INJECT_MARKER' not found in $base_file; injected fragments were not applied."
+    fi
+}
+
 if [ "$WEBTOP_TYPE" = "linuxserver" ]; then
     WEBTOP_DOCKERFILE="docker/dockerfiles/webtop/linuxserver/${SYSTEM}.Dockerfile"
     if [ ! -f "$WEBTOP_DOCKERFILE" ]; then
@@ -445,7 +472,11 @@ if [ "$WEBTOP_TYPE" = "linuxserver" ]; then
     fi
     WEBTOP_CONFIG_FILE="docker/dockerfiles/fragments/webtop/linuxserver-config.dockerfrag"
     WEBTOP_BUILD_DIR="build/webtop"
-    WEBTOP_MERGED_DOCKERFILE="${WEBTOP_BUILD_DIR}/${SYSTEM}.Dockerfile"
+    if [ "$ENABLE_CN_MIRROR" = true ]; then
+        WEBTOP_MERGED_DOCKERFILE="${WEBTOP_BUILD_DIR}/${SYSTEM}_cn.Dockerfile"
+    else
+        WEBTOP_MERGED_DOCKERFILE="${WEBTOP_BUILD_DIR}/${SYSTEM}.Dockerfile"
+    fi
     if [ ! -f "$WEBTOP_DOCKERFILE" ]; then
         echo "Webtop Dockerfile not found for system '$SYSTEM': $WEBTOP_DOCKERFILE"
         exit 1
@@ -455,6 +486,19 @@ if [ "$WEBTOP_TYPE" = "linuxserver" ]; then
         exit 1
     fi
 
+    WEBTOP_INJECT_FILES=()
+    if [ "$ENABLE_CN_MIRROR" = true ]; then
+        WEBTOP_CN_DOCKERFRAG="docker/dockerfiles/fragments/webtop/linuxserver/cn/${SYSTEM}_cn.dockerfrag"
+        if [ ! -f "$WEBTOP_CN_DOCKERFRAG" ]; then
+            WEBTOP_CN_DOCKERFRAG="docker/dockerfiles/fragments/webtop/linuxserver/cn/debian_cn.dockerfrag"
+        fi
+        if [ ! -f "$WEBTOP_CN_DOCKERFRAG" ]; then
+            echo "Webtop CN dockerfrag not found for system '$SYSTEM': $WEBTOP_CN_DOCKERFRAG"
+            exit 1
+        fi
+        WEBTOP_INJECT_FILES+=("$WEBTOP_CN_DOCKERFRAG")
+    fi
+
     echo "Webtop type: linuxserver"
     echo "Upstream webtop image: $WEBTOP_IMAGE"
     echo "Merging webtop Dockerfile into $WEBTOP_MERGED_DOCKERFILE..."
@@ -462,7 +506,7 @@ if [ "$WEBTOP_TYPE" = "linuxserver" ]; then
     > "$WEBTOP_MERGED_DOCKERFILE"
     echo "# Webtop system configuration - $(date)" >> "$WEBTOP_MERGED_DOCKERFILE"
     echo "# Source: $WEBTOP_DOCKERFILE" >> "$WEBTOP_MERGED_DOCKERFILE"
-    cat "$WEBTOP_DOCKERFILE" >> "$WEBTOP_MERGED_DOCKERFILE"
+    merge_base_with_injection "$WEBTOP_DOCKERFILE" "$WEBTOP_MERGED_DOCKERFILE" "${WEBTOP_INJECT_FILES[@]}"
     echo "" >> "$WEBTOP_MERGED_DOCKERFILE"
     echo "# Webtop shared configuration - $(date)" >> "$WEBTOP_MERGED_DOCKERFILE"
     echo "# Source: $WEBTOP_CONFIG_FILE" >> "$WEBTOP_MERGED_DOCKERFILE"
@@ -477,57 +521,8 @@ if [ "$PUBLISH" = true ] || [ "$EXECUTE_BUILD" = true ]; then
         echo "China mirror mode: disabled"
     fi
 
-    INJECT_MARKER="__INJECT_BEFORE_DEPS__"
-
-    merge_base_with_injection() {
-        local base_file=$1
-        local output_file=$2
-        shift 2
-        local inject_files=("$@")
-        local injected=false
-
-        while IFS= read -r line || [ -n "$line" ]; do
-            echo "$line" >> "$output_file"
-            if [[ "$line" == *"$INJECT_MARKER"* ]]; then
-                injected=true
-                for inject_file in "${inject_files[@]}"; do
-                    echo "" >> "$output_file"
-                    echo "# Injected configuration - $(date)" >> "$output_file"
-                    echo "# Source: $inject_file" >> "$output_file"
-                    cat "$inject_file" >> "$output_file"
-                done
-            fi
-        done < "$base_file"
-
-        if [ "$injected" != true ] && [ "${#inject_files[@]}" -gt 0 ]; then
-            echo "Warning: injection marker '$INJECT_MARKER' not found in $base_file; injected fragments were not applied."
-        fi
-    }
-
     if [ "$WEBTOP_TYPE" = "linuxserver" ]; then
         echo "Building using $WEBTOP_MERGED_DOCKERFILE"
-
-        WEBTOP_BASE_IMAGE_LOCAL_REF="$WEBTOP_IMAGE"
-        WEBTOP_BASE_IMAGE_PUBLISH_REF="$WEBTOP_IMAGE"
-        if [ "$ENABLE_CN_MIRROR" = true ]; then
-            WEBTOP_CN_DOCKERFILE="docker/dockerfiles/webtop/linuxserver/cn/${SYSTEM}_cn.Dockerfile"
-            if [ ! -f "$WEBTOP_CN_DOCKERFILE" ]; then
-                WEBTOP_CN_DOCKERFILE="docker/dockerfiles/webtop/linuxserver/cn/debian_cn.Dockerfile"
-            fi
-            if [ ! -f "$WEBTOP_CN_DOCKERFILE" ]; then
-                echo "Webtop CN Dockerfile not found for system '$SYSTEM': $WEBTOP_CN_DOCKERFILE"
-                exit 1
-            fi
-
-            WEBTOP_BASE_BUILD_TAGS=()
-            WEBTOP_BASE_BUILD_TAG_REASONS=()
-            append_standard_image_tags "$BASE_IMAGE_NAME" "$EFFECTIVE_BASE_TAG_PREFIX" "WEBTOP_BASE_BUILD_TAGS" "WEBTOP_BASE_BUILD_TAG_REASONS"
-            append_short_image_tags "$BASE_IMAGE_NAME" "$EFFECTIVE_BASE_TAG_PREFIX" "$EFFECTIVE_SHORT_BASE_TAG_PREFIX" "webtop mirror shorthand" "WEBTOP_BASE_BUILD_TAGS" "WEBTOP_BASE_BUILD_TAG_REASONS"
-
-            WEBTOP_BASE_IMAGE_LOCAL_REF="${BASE_IMAGE_NAME}:${EFFECTIVE_BASE_TAG_PREFIX}-${CURRENT_DATE}"
-            WEBTOP_BASE_IMAGE_PUBLISH_REF="${BASE_IMAGE_NAME}:${EFFECTIVE_BASE_TAG_PREFIX}-${CURRENT_DATE}"
-            echo "Webtop CN mirror Dockerfile: $WEBTOP_CN_DOCKERFILE"
-        fi
 
         BUILD_TAGS=()
         BUILD_TAG_REASONS=()
@@ -672,27 +667,14 @@ if [ "$PUBLISH" = true ]; then
     echo "Publisher mode enabled. Building and Pushing Multi-Arch Images (amd64, arm64)..."
 
     if [ "$WEBTOP_TYPE" = "linuxserver" ]; then
-        if [ "$ENABLE_CN_MIRROR" = true ]; then
-            echo "Pushing webtop CN mirror image..."
-            docker buildx build \
-                --platform linux/amd64,linux/arm64 \
-                --build-arg WEBTOP_IMAGE="$WEBTOP_IMAGE" \
-                "${WEBTOP_BASE_BUILD_TAGS[@]}" \
-                --push \
-                -f "$WEBTOP_CN_DOCKERFILE" .
-        fi
-
         docker buildx build \
             --platform linux/amd64,linux/arm64 \
-            --build-arg WEBTOP_BASE_IMAGE="$WEBTOP_BASE_IMAGE_PUBLISH_REF" \
+            --build-arg WEBTOP_BASE_IMAGE="$WEBTOP_IMAGE" \
             "${BUILD_TAGS_FLAVOR[@]}" \
             --push \
             -f "$DOCKERFILE" .
 
         echo "Multi-arch webtop build and push finished."
-        if [ "$ENABLE_CN_MIRROR" = true ]; then
-            print_tag_summary "Webtop CN mirror image pushed variants:" "WEBTOP_BASE_BUILD_TAGS" "WEBTOP_BASE_BUILD_TAG_REASONS"
-        fi
         print_tag_summary "Webtop image pushed variants:" "BUILD_TAGS_FLAVOR" "BUILD_TAGS_FLAVOR_REASONS"
     else
     BASE_FROM_IMAGE_ARG=(--build-arg "BASE_FROM_IMAGE=${SYSTEM_BASE_FROM_IMAGE}")
@@ -738,16 +720,8 @@ elif [ "$EXECUTE_BUILD" = true ]; then
     echo "Building the Docker image locally for current architecture..."
     
     if [ "$WEBTOP_TYPE" = "linuxserver" ]; then
-        if [ "$ENABLE_CN_MIRROR" = true ]; then
-            echo "Building webtop CN mirror image from $WEBTOP_CN_DOCKERFILE..."
-            docker build \
-                "${WEBTOP_BASE_BUILD_TAGS[@]}" \
-                --build-arg WEBTOP_IMAGE="$WEBTOP_IMAGE" \
-                -f "$WEBTOP_CN_DOCKERFILE" .
-        fi
-
         docker build \
-            --build-arg WEBTOP_BASE_IMAGE="$WEBTOP_BASE_IMAGE_LOCAL_REF" \
+            --build-arg WEBTOP_BASE_IMAGE="$WEBTOP_IMAGE" \
             "${BUILD_TAGS_FLAVOR[@]}" \
             -f "$DOCKERFILE" .
     else
@@ -761,9 +735,6 @@ elif [ "$EXECUTE_BUILD" = true ]; then
 
     echo "Docker image build process finished."
     if [ "$WEBTOP_TYPE" = "linuxserver" ]; then
-        if [ "$ENABLE_CN_MIRROR" = true ]; then
-            print_tag_summary "Webtop CN mirror image created variants:" "WEBTOP_BASE_BUILD_TAGS" "WEBTOP_BASE_BUILD_TAG_REASONS"
-        fi
         print_tag_summary "Webtop image created variants:" "BUILD_TAGS_FLAVOR" "BUILD_TAGS_FLAVOR_REASONS"
     else
         print_tag_summary "Base image created variants:" "BASE_BUILD_TAGS" "BASE_BUILD_TAG_REASONS"

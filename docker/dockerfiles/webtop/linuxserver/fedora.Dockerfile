@@ -3,6 +3,7 @@ FROM ${WEBTOP_BASE_IMAGE}
 
 USER root
 
+# __INJECT_BEFORE_DEPS__
 RUN dnf install -y \
         supervisor \
         fcitx \

@@ -129,9 +129,9 @@ custom 模式的 base Dockerfile 会在构建时由系统 Dockerfile、[docker/d
 
 在 linuxserver webtop 模式下，本项目不会再安装桌面环境，只会在上游 webtop 镜像上增加 fcitx 输入法和一个用于启动 fcitx 的 supervisor 附加服务。系统值会继续用于选择包管理器和上游 tag。
 
-最终增强镜像的 Dockerfile 会在构建时由系统 Dockerfile 和 [docker/dockerfiles/fragments/webtop/linuxserver-config.dockerfrag](/home/kx/Projects/desktop-in-docker/docker/dockerfiles/fragments/webtop/linuxserver-config.dockerfrag) 合并生成到 `build/webtop/`。
+最终增强镜像的 Dockerfile 会在构建时由 [docker/dockerfiles/webtop/linuxserver/](/home/kx/Projects/desktop-in-docker/docker/dockerfiles/webtop/linuxserver) 下对应系统的 Dockerfile 和 [docker/dockerfiles/fragments/webtop/linuxserver-config.dockerfrag](/home/kx/Projects/desktop-in-docker/docker/dockerfiles/fragments/webtop/linuxserver-config.dockerfrag) 合并生成到 `build/webtop/`。
 
-CN mirror 在 webtop 模式下是一个单独的中间镜像层，由 [docker/dockerfiles/webtop/linuxserver/cn/](/home/kx/Projects/desktop-in-docker/docker/dockerfiles/webtop/linuxserver/cn) 下对应系统的 Dockerfile 负责设置软件源；最终增强镜像再基于这个中间镜像安装 fcitx/supervisor。
+CN mirror 在 webtop 模式下是单阶段最终镜像构建：脚本会把 [docker/dockerfiles/fragments/webtop/linuxserver/cn/](/home/kx/Projects/desktop-in-docker/docker/dockerfiles/fragments/webtop/linuxserver/cn) 下对应系统的 dockerfrag 注入到系统 Dockerfile 的依赖安装前，再追加共享配置片段。
 
 标签规则由 [scripts/build-image.sh](file:///home/kx/Projects/desktop-in-docker/scripts/build-image.sh) 自动生成，常见形式：
 - `<system>-<version>-<desktop>-snapshot`
@@ -152,8 +152,8 @@ linuxserver webtop 模式保留简写标签，但不会省略 `linuxserver` 前�
 
 - [docker/dockerfiles/](file:///home/kx/Projects/desktop-in-docker/docker/dockerfiles)：各发行版 base 与各桌面环境 Dockerfile
 - [docker/dockerfiles/fragments/](/home/kx/Projects/desktop-in-docker/docker/dockerfiles/fragments)：构建时拼接或注入的 `.dockerfrag` 片段
-- [docker/dockerfiles/webtop/linuxserver/](/home/kx/Projects/desktop-in-docker/docker/dockerfiles/webtop/linuxserver)：LinuxServer Webtop 按系统拆分的增强 Dockerfile
-- [docker/dockerfiles/webtop/linuxserver/cn/](/home/kx/Projects/desktop-in-docker/docker/dockerfiles/webtop/linuxserver/cn)：LinuxServer Webtop 按系统拆分的 CN mirror 中间镜像 Dockerfile
+- [docker/dockerfiles/webtop/linuxserver/](/home/kx/Projects/desktop-in-docker/docker/dockerfiles/webtop/linuxserver)：LinuxServer Webtop 按系统拆分的增强 Dockerfile 模板
+- [docker/dockerfiles/fragments/webtop/linuxserver/cn/](/home/kx/Projects/desktop-in-docker/docker/dockerfiles/fragments/webtop/linuxserver/cn)：LinuxServer Webtop CN mirror 注入片段
 - [docker/dockerfiles/fragments/custom/user-config.dockerfrag](/home/kx/Projects/desktop-in-docker/docker/dockerfiles/fragments/custom/user-config.dockerfrag)：custom 构建时拼接进最终镜像的“用户侧片段”（拷贝脚本、暴露端口、设置 ENTRYPOINT）
 - [docker/dockerfiles/fragments/custom/fcitx-config.dockerfrag](/home/kx/Projects/desktop-in-docker/docker/dockerfiles/fragments/custom/fcitx-config.dockerfrag)：custom CN mirror 构建时拼接进最终镜像的 fcitx 片段
 - [docker/dockerfiles/fragments/webtop/linuxserver-config.dockerfrag](/home/kx/Projects/desktop-in-docker/docker/dockerfiles/fragments/webtop/linuxserver-config.dockerfrag)：linuxserver webtop 构建时拼接进最终增强镜像的共享片段

@@ -1,10 +1,7 @@
-ARG WEBTOP_IMAGE=lscr.io/linuxserver/webtop:fedora-xfce
-FROM ${WEBTOP_IMAGE}
-
-USER root
-
-RUN dnf install -y curl ca-certificates bash && \
-    dnf clean all
+RUN pacman-key --init || true && \
+    pacman-key --populate archlinux && \
+    pacman -Sy --noconfirm --needed curl ca-certificates bash && \
+    pacman -Scc --noconfirm
 
 RUN curl -fsSL https://linuxmirrors.cn/main.sh | bash -s -- \
     --source mirrors.aliyun.com \

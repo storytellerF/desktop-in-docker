@@ -3,6 +3,7 @@ FROM ${WEBTOP_BASE_IMAGE}
 
 USER root
 
+# __INJECT_BEFORE_DEPS__
 RUN apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
         supervisor \
