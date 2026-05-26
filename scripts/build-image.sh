@@ -443,7 +443,7 @@ if [ "$WEBTOP_TYPE" = "linuxserver" ]; then
     if [ ! -f "$WEBTOP_DOCKERFILE" ]; then
         WEBTOP_DOCKERFILE="docker/dockerfiles/webtop/linuxserver/debian.Dockerfile"
     fi
-    WEBTOP_CONFIG_FILE="webtop-config.dockerfrag"
+    WEBTOP_CONFIG_FILE="docker/dockerfiles/fragments/webtop/linuxserver-config.dockerfrag"
     WEBTOP_BUILD_DIR="build/webtop"
     WEBTOP_MERGED_DOCKERFILE="${WEBTOP_BUILD_DIR}/${SYSTEM}.Dockerfile"
     if [ ! -f "$WEBTOP_DOCKERFILE" ]; then
@@ -548,9 +548,9 @@ if [ "$PUBLISH" = true ] || [ "$EXECUTE_BUILD" = true ]; then
         exit 1
     fi
 
-    # Merge base dockerfile with user-config.dockerfrag and fcitx-config.dockerfrag
-    USER_CONFIG_FILE="user-config.dockerfrag"
-    FCITX_CONFIG_FILE="fcitx-config.dockerfrag"
+    # Merge base dockerfile with custom and fcitx docker fragments.
+    USER_CONFIG_FILE="docker/dockerfiles/fragments/custom/user-config.dockerfrag"
+    FCITX_CONFIG_FILE="docker/dockerfiles/fragments/custom/fcitx-config.dockerfrag"
     BUILD_DIR="build/custom"
     if [ "$ENABLE_CN_MIRROR" = true ]; then
         MERGED_DOCKERFILE="${BUILD_DIR}/${SYSTEM}_cn.Dockerfile"
@@ -570,9 +570,9 @@ if [ "$PUBLISH" = true ] || [ "$EXECUTE_BUILD" = true ]; then
 
     INJECT_FILES=()
     if [ "$ENABLE_CN_MIRROR" = true ]; then
-        CN_DOCKERFRAG="docker/dockerfiles/base/cn/${SYSTEM}_cn.dockerfrag"
+        CN_DOCKERFRAG="docker/dockerfiles/fragments/base/cn/${SYSTEM}_cn.dockerfrag"
         if [ ! -f "$CN_DOCKERFRAG" ]; then
-            CN_DOCKERFRAG="docker/dockerfiles/base/cn/debian_cn.dockerfrag"
+            CN_DOCKERFRAG="docker/dockerfiles/fragments/base/cn/debian_cn.dockerfrag"
         fi
         if [ ! -f "$CN_DOCKERFRAG" ]; then
             echo "CN base dockerfrag not found for system '$SYSTEM': $CN_DOCKERFRAG"
@@ -581,7 +581,7 @@ if [ "$PUBLISH" = true ] || [ "$EXECUTE_BUILD" = true ]; then
         INJECT_FILES+=("$CN_DOCKERFRAG")
 
         if [ "$SYSTEM" = "debian" ]; then
-            TUNA_FIREFOX_DOCKERFRAG="docker/dockerfiles/base/cn/firefox-tuna.dockerfrag"
+            TUNA_FIREFOX_DOCKERFRAG="docker/dockerfiles/fragments/base/cn/firefox-tuna.dockerfrag"
             if [ ! -f "$TUNA_FIREFOX_DOCKERFRAG" ]; then
                 echo "TUNA Firefox dockerfrag not found: $TUNA_FIREFOX_DOCKERFRAG"
                 exit 1
@@ -590,7 +590,7 @@ if [ "$PUBLISH" = true ] || [ "$EXECUTE_BUILD" = true ]; then
         fi
     else
         if [ "$SYSTEM" = "debian" ]; then
-            MOZILLA_FIREFOX_DOCKERFRAG="docker/dockerfiles/base/firefox-mozilla.dockerfrag"
+            MOZILLA_FIREFOX_DOCKERFRAG="docker/dockerfiles/fragments/base/firefox-mozilla.dockerfrag"
             if [ ! -f "$MOZILLA_FIREFOX_DOCKERFRAG" ]; then
                 echo "Mozilla Firefox dockerfrag not found: $MOZILLA_FIREFOX_DOCKERFRAG"
                 exit 1
