@@ -689,10 +689,10 @@ if [ "$PUBLISH" = true ] || [ "$EXECUTE_BUILD" = true ]; then
     if [ "$IMAGE_VARIANT" = "wayland" ]; then
         DOCKERFILE="docker/dockerfiles/wayland/${DESKTOP_ENV}/${SYSTEM}.Dockerfile"
     else
-        DOCKERFILE="docker/dockerfiles/${DESKTOP_ENV}/debian.Dockerfile"
+        DOCKERFILE="docker/dockerfiles/x11/${DESKTOP_ENV}/debian.Dockerfile"
     fi
-    if [ "$IMAGE_VARIANT" != "wayland" ] && [ -f "docker/dockerfiles/${DESKTOP_ENV}/${SYSTEM}.Dockerfile" ]; then
-        DOCKERFILE="docker/dockerfiles/${DESKTOP_ENV}/${SYSTEM}.Dockerfile"
+    if [ "$IMAGE_VARIANT" != "wayland" ] && [ -f "docker/dockerfiles/x11/${DESKTOP_ENV}/${SYSTEM}.Dockerfile" ]; then
+        DOCKERFILE="docker/dockerfiles/x11/${DESKTOP_ENV}/${SYSTEM}.Dockerfile"
     fi
 
     if [ ! -f "$DOCKERFILE" ]; then

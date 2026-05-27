@@ -211,7 +211,7 @@ Wayland 标签会以 `wayland-` 开头，例如：
 ├── base-scripts/              # 容器内启动脚本
 ├── docker/
 │   ├── config/                # supervisor 与 Webtop 自定义服务配置
-│   └── dockerfiles/           # 各系统、桌面环境和构建片段
+│   └── dockerfiles/           # base、x11、wayland、webtop 和构建片段
 ├── fcitx/                     # fcitx 配置
 ├── scripts/
 │   ├── build-image.sh         # 构建、发布、启动主脚本

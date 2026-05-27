@@ -118,12 +118,12 @@ default_system_version() {
 expected_x11_desktop_dockerfile() {
     local system=$1
     local desktop=$2
-    local dockerfile="docker/dockerfiles/${desktop}/${system}.Dockerfile"
+    local dockerfile="docker/dockerfiles/x11/${desktop}/${system}.Dockerfile"
 
     if [ -f "$dockerfile" ]; then
         echo "$dockerfile"
     else
-        echo "docker/dockerfiles/${desktop}/debian.Dockerfile"
+        echo "docker/dockerfiles/x11/${desktop}/debian.Dockerfile"
     fi
 }
 
