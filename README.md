@@ -218,7 +218,6 @@ Wayland 标签会以 `wayland-` 开头，例如：
 │   └── vnc.sh                 # 本机 VNC 连接辅助脚本
 ├── tests/                     # fake docker 测试
 ├── docker-compose.yml
-├── supervisord.conf
 └── README.md
 ```
 

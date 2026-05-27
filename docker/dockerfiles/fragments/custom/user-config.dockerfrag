@@ -12,7 +12,7 @@ RUN SNIPPET="export PROMPT_COMMAND='history -a' && export HISTFILE=/home/${USERN
 RUN mkdir -p log/supervisor run
 
 # Copy supervisor configuration
-COPY --chown=${USER_UID}:${USER_GID} supervisord.conf ./supervisor/supervisord.conf
+COPY --chown=${USER_UID}:${USER_GID} docker/config/supervisor/custom.supervisord.conf ./supervisor/supervisord.conf
 
 # 主要用于supervisor
 ENV SUPERVISOR_USER=$USERNAME
