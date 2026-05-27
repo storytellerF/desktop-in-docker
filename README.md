@@ -1,8 +1,9 @@
 # desktop-in-docker
 
-在 Docker 容器中运行 Linux 桌面环境，并通过浏览器或 VNC 客户端访问。项目提供两类镜像构建方式：
+在 Docker 容器中运行 Linux 桌面环境，并通过浏览器、VNC 客户端或 RDP 客户端访问。项目提供三类镜像构建方式：
 
 - `x11`：从发行版基础镜像开始安装 TigerVNC、noVNC、supervisor 和指定桌面环境。
+- `wayland`：从 Arch Linux 基础镜像开始安装 Weston，并通过 Weston RDP backend 暴露轻量 Wayland 桌面。
 - `webtop`：基于 LinuxServer Webtop 镜像扩展，额外加入 fcitx 输入法和 supervisor 服务。
 
 默认构建组合是 `x11 + debian:trixie + xfce`。
@@ -28,12 +29,14 @@ docker compose up -d
 ```bash
 docker compose port desktop 6080
 docker compose port desktop 5901
+docker compose port desktop 3389
 ```
 
 访问桌面：
 
 - x11 Web VNC：`http://localhost:<6080映射端口>/vnc.html`
 - x11 VNC 直连：`localhost:<5901映射端口>`
+- wayland RDP：`localhost:<3389映射端口>`
 
 compose 示例还暴露了 Webtop 使用的 `3000` 和 `3001` 端口。Webtop 镜像启动后通常访问：
 
@@ -76,6 +79,12 @@ compose 示例还暴露了 Webtop 使用的 `3000` 和 `3001` 端口。Webtop �
 ./scripts/build-image.sh --image-variant webtop -s arch -d xfce -b
 ```
 
+构建 Arch Wayland + RDP 变体：
+
+```bash
+./scripts/build-image.sh --image-variant wayland -s arch -b
+```
+
 发布多架构镜像到 Docker Hub，需要提前 `docker login`：
 
 ```bash
@@ -94,10 +103,10 @@ compose 示例还暴露了 Webtop 使用的 `3000` 和 `3001` 端口。Webtop �
 
 | 参数 | 说明 |
 | --- | --- |
-| `-s, --system` | 发行版或 Webtop 上游 tag 的系统部分：`debian`、`ubuntu`、`fedora`、`arch`、`alpine` |
+| `-s, --system` | 发行版或 Webtop 上游 tag 的系统部分：`debian`、`ubuntu`、`fedora`、`arch`、`alpine`；Wayland 仅支持 `arch` |
 | `-v, --version` | 发行版版本，默认：Debian `trixie`、Ubuntu `noble`、Fedora `41`、Arch/Alpine `latest` |
-| `-d, --desktop` | 桌面环境：`xfce`、`lxqt`、`kde`、`mate`、`cinnamon`、`lxde`、`gnome`、`enlightenment` |
-| `-i, --image-variant` | 镜像类型：`x11`、`webtop`；`wayland` 已识别但尚未实现 |
+| `-d, --desktop` | 桌面环境：`xfce`、`lxqt`、`kde`、`mate`、`cinnamon`、`lxde`、`gnome`、`enlightenment`；Wayland 仅支持 `weston` |
+| `-i, --image-variant` | 镜像类型：`x11`、`wayland`、`webtop` |
 | `-p, --password` | 写入 `.env` 时使用的 VNC 密码 |
 | `-b, --build` | 本地构建当前架构镜像 |
 | `-S, --start` | 使用 Docker Compose 启动服务 |
@@ -129,6 +138,12 @@ x11 发行版：
 - `fedora`
 - `alpine`
 
+Wayland 发行版和桌面：
+
+- `arch + weston`
+
+`weston` 是轻量 Wayland compositor，负责显示合成和 RDP 输出；它不是 XFCE、MATE、KDE、GNOME 这类完整桌面环境。首版 Wayland 镜像提供 Weston 桌面、RDP 入口和常用 GUI 应用，不实现完整 Plasma/GNOME 会话。
+
 Webtop 发行版：
 
 - `debian`
@@ -139,9 +154,9 @@ Webtop 发行版：
 
 当前限制：
 
-- `--image-variant x11 -s arch` 不支持。Arch 请使用 `--image-variant webtop`。
+- `--image-variant x11 -s arch` 不支持。Arch 请使用 `--image-variant wayland -d weston` 或 `--image-variant webtop`。
+- `--image-variant wayland` 仅支持 `-s arch -d weston`。
 - `--image-variant x11 -s ubuntu` 只支持 `noble` / `24.04` 或更早版本。
-- `--image-variant wayland` 仍是预留选项，暂未实现。
 
 部分桌面环境没有对应系统的专用 Dockerfile 时，脚本会回退到该桌面的 Debian Dockerfile。Webtop 模式下如果没有系统专用模板，也会回退到 Debian 模板，并通过 `WEBTOP_BASE_IMAGE` 指定上游镜像 tag。
 
@@ -156,7 +171,9 @@ Webtop 发行版：
 | `VNC_PASSWD` | 未设置时无密码 | x11 VNC 密码；建议务必设置 |
 | `VNC_GEOMETRY` | `1280x800`，compose 示例为 `1920x1080` | x11 VNC 分辨率 |
 | `VNC_DEPTH` | `24` | x11 VNC 色深 |
-| `CONTAINER_HOME` | x11 为 `/home/<user>`，webtop 为 `/config` | 日志和持久化目录挂载位置 |
+| `RDP_PORT` | `3389` | wayland Weston RDP 容器内监听端口 |
+| `CONTAINER_RDP_PORT` | `3389` | compose 暴露和脚本查询的 wayland RDP 容器端口；通常与 `RDP_PORT` 保持一致 |
+| `CONTAINER_HOME` | x11/wayland 为 `/home/<user>`，webtop 为 `/config` | 日志和持久化目录挂载位置 |
 | `ENABLE_CN_MIRROR` | 按时区自动判断 | 可用 `true` / `false` 控制脚本的国内镜像源模式 |
 
 如果 `VNC_PASSWD` 未设置，x11 的 TigerVNC 会以无密码模式启动，逻辑见 [base-scripts/start-vnc.sh](base-scripts/start-vnc.sh)。
@@ -182,6 +199,11 @@ Webtop 标签会以 `webtop-` 开头，例如：
 - `webtop-kde-snapshot`
 - `webtop-snapshot`
 
+Wayland 标签会以 `wayland-` 开头，例如：
+
+- `wayland-arch-latest-weston-snapshot`
+- `wayland-arch-latest-weston-latest`
+
 ## 项目结构
 
 ```text
@@ -203,6 +225,7 @@ Webtop 标签会以 `webtop-` 开头，例如：
 构建时生成的 Dockerfile 会写入：
 
 - `build/x11/`
+- `build/wayland/`
 - `build/webtop/`
 
 这些文件由脚本从 Dockerfile 模板和 `.dockerfrag` 片段合并生成。
@@ -234,5 +257,6 @@ cat /tmp/desktop-in-docker-fake-docker.log
 ## 安全提示
 
 - 请设置 `VNC_PASSWD`，不要把 VNC 端口直接暴露到不可信网络。
+- Wayland RDP 首版使用自签名 TLS 证书，不提供额外登录认证层；请只绑定本机或可信网络，不要把 RDP 端口直接暴露到公网。
 - x11 基础镜像会创建带免密 sudo 的非 root 用户，方便开发和调试，但不适合运行不可信工作负载。
 - Webtop 模式继承 LinuxServer Webtop 的运行模型，容器内主要用户为 `abc`，持久化目录为 `/config`。

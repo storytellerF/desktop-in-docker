@@ -9,7 +9,7 @@ DEFAULT_VNC_PASSWORD="password"
 usage() {
     echo "Usage: $0 [OPTIONS]"
     echo "Options:"
-    echo "  -s, --system <system>        Specify the Linux distribution; in webtop mode selects the upstream tag system (debian, ubuntu, fedora, arch, alpine) (default: debian)"
+    echo "  -s, --system <system>        Specify the Linux distribution; in webtop mode selects the upstream tag system (debian, ubuntu, fedora, arch, alpine) (default: debian; wayland supports arch only)"
     echo "  -v, --version <version>      Specify the distribution version (e.g., bookworm, trixie, focal, jammy, noble)"
     echo "  -p, --password <password>    Specify the VNC password (default: $DEFAULT_VNC_PASSWORD)"
     echo "  -c, --create-env             Create or overwrite the .env file with the specified or default values"
@@ -18,7 +18,7 @@ usage() {
     echo "  -T, --stop                   Stop docker compose (runs down; if combined with --start, stops first)"
     echo "  -P, --publish                Build and Push multi-arch images to Docker Hub (requires docker login)"
     echo "  -m, --multi-arch             Enable multi-arch mode (builds/pushes for amd64 and arm64)"
-    echo "  -d, --desktop <desktop>      Specify the desktop environment; in webtop mode selects the upstream tag desktop (xfce, lxqt, kde, mate, cinnamon, lxde, gnome, enlightenment) (default: xfce)"
+    echo "  -d, --desktop <desktop>      Specify the desktop environment; wayland supports weston only (default: xfce; wayland default: weston)"
     echo "  -i, --image-variant <variant> Specify the image variant (x11, wayland, webtop) (default: x11)"
     echo "  --cn-mirror                  Force China mirror mode (CN tags + build-time package mirrors)"
     echo "  --no-cn-mirror               Disable China mirror mode"
@@ -88,6 +88,7 @@ print_tag_summary() {
 
 print_available_desktops() {
     echo "Available desktop environments: xfce, lxqt, kde, mate, cinnamon, lxde, gnome, enlightenment"
+    echo "Available Wayland desktops: weston"
 }
 
 print_available_image_variants() {
@@ -127,6 +128,18 @@ validate_build_matrix() {
     if [ "$IMAGE_VARIANT" = "x11" ] && [ "$SYSTEM" = "arch" ]; then
         echo "Unsupported build matrix: --image-variant x11 does not support --system arch."
         echo "Use --image-variant webtop with --system arch, or choose debian/ubuntu/fedora/alpine for x11."
+        exit 1
+    fi
+
+    if [ "$IMAGE_VARIANT" = "wayland" ] && [ "$SYSTEM" != "arch" ]; then
+        echo "Unsupported build matrix: --image-variant wayland supports --system arch only."
+        echo "Requested system: $SYSTEM"
+        exit 1
+    fi
+
+    if [ "$IMAGE_VARIANT" = "wayland" ] && [ "$DESKTOP_ENV" != "weston" ]; then
+        echo "Unsupported build matrix: --image-variant wayland supports --desktop weston only."
+        echo "Weston is a lightweight Wayland compositor exposed through RDP, not a full desktop environment."
         exit 1
     fi
 
@@ -307,9 +320,8 @@ case "$IMAGE_VARIANT" in
         ;;
 esac
 
-if [ "$IMAGE_VARIANT" = "wayland" ]; then
-    echo "Wayland image variant is recognized but not implemented yet."
-    exit 1
+if [ "$IMAGE_VARIANT" = "wayland" ] && [ -z "$CMD_DESKTOP_ENV" ]; then
+    DESKTOP_ENV="weston"
 fi
 
 # Default versions based on system
@@ -333,6 +345,9 @@ if [ "$IMAGE_VARIANT" = "webtop" ]; then
     WEBTOP_IMAGE="lscr.io/linuxserver/webtop:${WEBTOP_TAG}"
     BASE_TAG_PREFIX="webtop-${WEBTOP_TAG}-base"
     DESKTOP_TAG_PREFIX="webtop-${WEBTOP_TAG}"
+elif [ "$IMAGE_VARIANT" = "wayland" ]; then
+    BASE_TAG_PREFIX="wayland-${SYSTEM}-${SYSTEM_VERSION}-base"
+    DESKTOP_TAG_PREFIX="wayland-${SYSTEM}-${SYSTEM_VERSION}-${DESKTOP_ENV}"
 fi
 
 case "$SYSTEM" in
@@ -466,11 +481,16 @@ esac
 CONTAINER_HOME="/home/${CONTAINER_USER}"
 CONTAINER_WEB_PORT="6080"
 CONTAINER_VNC_PORT="5901"
+CONTAINER_RDP_PORT=""
 if [ "$IMAGE_VARIANT" = "webtop" ]; then
     CONTAINER_USER="abc"
     CONTAINER_HOME="/config"
     CONTAINER_WEB_PORT="3000"
     CONTAINER_VNC_PORT="3001"
+elif [ "$IMAGE_VARIANT" = "wayland" ]; then
+    CONTAINER_WEB_PORT=""
+    CONTAINER_VNC_PORT=""
+    CONTAINER_RDP_PORT="${RDP_PORT:-3389}"
 fi
 
 # Prepend Docker Username to Image Name if set
@@ -577,7 +597,9 @@ if [ "$PUBLISH" = true ] || [ "$EXECUTE_BUILD" = true ]; then
     else
     # Determine base dockerfile
     BASE_DOCKERFILE="docker/dockerfiles/base/debian.Dockerfile"
-    if [ -f "docker/dockerfiles/base/${SYSTEM}.Dockerfile" ]; then
+    if [ "$IMAGE_VARIANT" = "wayland" ]; then
+        BASE_DOCKERFILE="docker/dockerfiles/wayland/base/${SYSTEM}.Dockerfile"
+    elif [ -f "docker/dockerfiles/base/${SYSTEM}.Dockerfile" ]; then
         BASE_DOCKERFILE="docker/dockerfiles/base/${SYSTEM}.Dockerfile"
     fi
     if [ ! -f "$BASE_DOCKERFILE" ]; then
@@ -589,18 +611,21 @@ if [ "$PUBLISH" = true ] || [ "$EXECUTE_BUILD" = true ]; then
     USER_CONFIG_FILE="docker/dockerfiles/fragments/custom/user-config.dockerfrag"
     FCITX_CONFIG_FILE="docker/dockerfiles/fragments/custom/fcitx-config.dockerfrag"
     BUILD_DIR="build/x11"
+    if [ "$IMAGE_VARIANT" = "wayland" ]; then
+        BUILD_DIR="build/wayland"
+    fi
     if [ "$ENABLE_CN_MIRROR" = true ]; then
         MERGED_DOCKERFILE="${BUILD_DIR}/${SYSTEM}_cn.Dockerfile"
     else
         MERGED_DOCKERFILE="${BUILD_DIR}/${SYSTEM}.Dockerfile"
     fi
     
-    if [ ! -f "$USER_CONFIG_FILE" ]; then
+    if [ "$IMAGE_VARIANT" != "wayland" ] && [ ! -f "$USER_CONFIG_FILE" ]; then
         echo "User config file not found: $USER_CONFIG_FILE"
         exit 1
     fi
 
-    if [ "$ENABLE_CN_MIRROR" = true ] && [ ! -f "$FCITX_CONFIG_FILE" ]; then
+    if [ "$IMAGE_VARIANT" != "wayland" ] && [ "$ENABLE_CN_MIRROR" = true ] && [ ! -f "$FCITX_CONFIG_FILE" ]; then
         echo "Fcitx config file not found (required in CN mirror mode): $FCITX_CONFIG_FILE"
         exit 1
     fi
@@ -642,24 +667,31 @@ if [ "$PUBLISH" = true ] || [ "$EXECUTE_BUILD" = true ]; then
     echo "# Base system configuration - $(date)" >> "$MERGED_DOCKERFILE"
     echo "# Source: $BASE_DOCKERFILE" >> "$MERGED_DOCKERFILE"
     merge_base_with_injection "$BASE_DOCKERFILE" "$MERGED_DOCKERFILE" "${INJECT_FILES[@]}"
-    echo "" >> "$MERGED_DOCKERFILE"
-    echo "# User configuration - $(date)" >> "$MERGED_DOCKERFILE"
-    echo "# Source: $USER_CONFIG_FILE" >> "$MERGED_DOCKERFILE"
-    cat "$USER_CONFIG_FILE" >> "$MERGED_DOCKERFILE"
 
-    if [ "$ENABLE_CN_MIRROR" = true ]; then
+    if [ "$IMAGE_VARIANT" != "wayland" ]; then
         echo "" >> "$MERGED_DOCKERFILE"
-        echo "# Fcitx configuration - $(date)" >> "$MERGED_DOCKERFILE"
-        echo "# Source: $FCITX_CONFIG_FILE" >> "$MERGED_DOCKERFILE"
-        cat "$FCITX_CONFIG_FILE" >> "$MERGED_DOCKERFILE"
+        echo "# User configuration - $(date)" >> "$MERGED_DOCKERFILE"
+        echo "# Source: $USER_CONFIG_FILE" >> "$MERGED_DOCKERFILE"
+        cat "$USER_CONFIG_FILE" >> "$MERGED_DOCKERFILE"
+
+        if [ "$ENABLE_CN_MIRROR" = true ]; then
+            echo "" >> "$MERGED_DOCKERFILE"
+            echo "# Fcitx configuration - $(date)" >> "$MERGED_DOCKERFILE"
+            echo "# Source: $FCITX_CONFIG_FILE" >> "$MERGED_DOCKERFILE"
+            cat "$FCITX_CONFIG_FILE" >> "$MERGED_DOCKERFILE"
+        fi
     fi
     
     # Use the merged dockerfile for building base image
     BASE_DOCKERFILE="$MERGED_DOCKERFILE"
 
     # Determine flavor dockerfile
-    DOCKERFILE="docker/dockerfiles/${DESKTOP_ENV}/debian.Dockerfile"
-    if [ -f "docker/dockerfiles/${DESKTOP_ENV}/${SYSTEM}.Dockerfile" ]; then
+    if [ "$IMAGE_VARIANT" = "wayland" ]; then
+        DOCKERFILE="docker/dockerfiles/wayland/${DESKTOP_ENV}/${SYSTEM}.Dockerfile"
+    else
+        DOCKERFILE="docker/dockerfiles/${DESKTOP_ENV}/debian.Dockerfile"
+    fi
+    if [ "$IMAGE_VARIANT" != "wayland" ] && [ -f "docker/dockerfiles/${DESKTOP_ENV}/${SYSTEM}.Dockerfile" ]; then
         DOCKERFILE="docker/dockerfiles/${DESKTOP_ENV}/${SYSTEM}.Dockerfile"
     fi
 
@@ -823,8 +855,9 @@ if [ "$START_CONTAINER" = true ]; then
     export CONTAINER_HOME
     export CONTAINER_WEB_PORT
     export CONTAINER_VNC_PORT
+    export CONTAINER_RDP_PORT
     export VNC_PASSWD
-    echo "Exported DOCKER_USERNAME=$DOCKER_USERNAME, IMAGE_TAG=$IMAGE_TAG, CONTAINER_HOME=$CONTAINER_HOME, CONTAINER_WEB_PORT=$CONTAINER_WEB_PORT, CONTAINER_VNC_PORT=$CONTAINER_VNC_PORT"
+    echo "Exported DOCKER_USERNAME=$DOCKER_USERNAME, IMAGE_TAG=$IMAGE_TAG, CONTAINER_HOME=$CONTAINER_HOME, CONTAINER_WEB_PORT=$CONTAINER_WEB_PORT, CONTAINER_VNC_PORT=$CONTAINER_VNC_PORT, CONTAINER_RDP_PORT=$CONTAINER_RDP_PORT"
 
     # 启动并检查是否成功，如果成功显示下面的log
     COMPOSE_FILES="-f docker-compose.yml"
@@ -832,11 +865,27 @@ if [ "$START_CONTAINER" = true ]; then
     if docker compose $COMPOSE_FILES up -d --build; then
         echo "Docker compose started successfully."
         # 获取映射后的外部端口
-        WEB_PORT=$(docker compose port desktop "$CONTAINER_WEB_PORT" 2>/dev/null | cut -d':' -f2)
-        VNC_PORT=$(docker compose port desktop "$CONTAINER_VNC_PORT" 2>/dev/null | cut -d':' -f2)
+        WEB_PORT=""
+        VNC_PORT=""
+        RDP_PORT=""
+        if [ -n "$CONTAINER_WEB_PORT" ]; then
+            WEB_PORT=$(docker compose port desktop "$CONTAINER_WEB_PORT" 2>/dev/null | cut -d':' -f2)
+        fi
+        if [ -n "$CONTAINER_VNC_PORT" ]; then
+            VNC_PORT=$(docker compose port desktop "$CONTAINER_VNC_PORT" 2>/dev/null | cut -d':' -f2)
+        fi
+        if [ -n "$CONTAINER_RDP_PORT" ]; then
+            RDP_PORT=$(docker compose port desktop "$CONTAINER_RDP_PORT" 2>/dev/null | cut -d':' -f2)
+        fi
         
         echo "You can access the desktop via:"
-        if [ -n "$WEB_PORT" ]; then
+        if [ "$IMAGE_VARIANT" = "wayland" ]; then
+            if [ -n "$RDP_PORT" ]; then
+                echo "  - RDP: localhost:${RDP_PORT}"
+            else
+                echo "  - RDP mapping not found (port $CONTAINER_RDP_PORT)"
+            fi
+        elif [ -n "$WEB_PORT" ]; then
             if [ "$IMAGE_VARIANT" = "webtop" ]; then
                 echo "  - Webtop: http://localhost:${WEB_PORT}/"
             else
@@ -846,10 +895,10 @@ if [ "$START_CONTAINER" = true ]; then
             echo "  - Web mapping not found (port $CONTAINER_WEB_PORT)"
         fi
         
-        if [ -n "$VNC_PORT" ]; then
+        if [ "$IMAGE_VARIANT" != "wayland" ] && [ -n "$VNC_PORT" ]; then
             echo "  - VNC direct: localhost:${VNC_PORT}"
             echo "  - You can also run: ./vnc.sh to connect using vncviewer"
-        else
+        elif [ "$IMAGE_VARIANT" != "wayland" ]; then
             echo "  - VNC direct mapping not found (port $CONTAINER_VNC_PORT)"
         fi
     else

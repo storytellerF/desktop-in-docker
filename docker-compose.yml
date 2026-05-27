@@ -6,6 +6,7 @@ services:
       - "5901"
       - "3000"
       - "3001"
+      - "${CONTAINER_RDP_PORT:-3389}"
     environment:
       - VNC_GEOMETRY=1920x1080
       - VNC_DEPTH=24
