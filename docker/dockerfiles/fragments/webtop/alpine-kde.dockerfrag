@@ -1,0 +1,4 @@
+# Keep Qt process creation bounded on musl even when the Docker daemon supplies
+# an extremely large hard file-descriptor limit. Other Webtop desktops keep
+# their upstream session environment.
+COPY base-scripts/session-process-limits.sh /etc/xdg/plasma-workspace/env/desktop-in-docker-process-limits.sh

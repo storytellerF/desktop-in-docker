@@ -3,7 +3,7 @@ RUN pacman-key --init && \
     pacman -Sy --noconfirm --needed curl ca-certificates bash && \
     pacman -Scc --noconfirm
 
-RUN bash -o pipefail -c 'curl -fsSL https://linuxmirrors.cn/main.sh | bash -s -- \
+RUN bash -o pipefail -c 'curl -fsSL --connect-timeout 10 --max-time 120 --retry 3 https://linuxmirrors.cn/main.sh | bash -s -- \
         --source mirrors.aliyun.com \
         --protocol https \
         --use-intranet-source false \

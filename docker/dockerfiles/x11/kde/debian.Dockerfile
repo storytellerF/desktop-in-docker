@@ -3,21 +3,6 @@ ARG BASE_IMAGE=desktop-in-docker:debian-trixie-base-latest
 FROM ${BASE_IMAGE}
 
 USER root
-# Prevent installation of power-management and screen-lock packages via APT pinning
-RUN printf 'Package: %s\nPin: release *\nPin-Priority: -1\n\n' \
-    upower \
-    power-profiles-daemon \
-    powerdevil \
-    kscreenlocker-common \
-    xscreensaver \
-    xscreensaver-data \
-    gnome-screensaver \
-    mate-screensaver \
-    cinnamon-screensaver \
-    light-locker \
-    xfce4-screensaver \
-    > /etc/apt/preferences.d/no-desktop-extras
-
 # Install KDE-specific packages
 # kde-plasma-desktop is a minimal KDE installation
 RUN apt-get update && \
@@ -27,6 +12,7 @@ RUN apt-get update && \
     x11-xserver-utils \
     xfonts-base \
     kde-plasma-desktop \
+    kwin-x11 \
     && rm -rf /var/lib/apt/lists/*
 
 ARG USERNAME=debian

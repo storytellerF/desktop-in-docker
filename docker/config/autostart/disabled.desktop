@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Application
+Name=Disabled in container session
+Exec=/bin/true
+TryExec=/bin/true
+Hidden=true

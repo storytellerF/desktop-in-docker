@@ -6,9 +6,12 @@ USER root
 
 # Install LXDE on Alpine Linux
 RUN apk add --no-cache \
-    lxde \
-    lxde-common \
-    lxde-icon-theme \
+    lxsession \
+    libfm \
+    libwnck3 \
+    keybinder3 \
+    menu-cache \
+    adwaita-icon-theme \
     lxterminal \
     pcmanfm \
     openbox \
@@ -16,6 +19,9 @@ RUN apk add --no-cache \
     dbus-x11 \
     dbus \
     xrdb
+
+COPY docker/build/build-alpine-lxde.sh /usr/local/libexec/build-alpine-lxde.sh
+RUN sh /usr/local/libexec/build-alpine-lxde.sh
 
 ARG USERNAME=alpine
 USER $USERNAME
@@ -26,3 +32,13 @@ RUN mkdir -p .config/tigervnc && \
     echo "[ -f \"\$HOME/.Xresources\" ] && xrdb \"\$HOME/.Xresources\"" >> .config/tigervnc/xstartup && \
     echo "exec dbus-run-session startlxde" >> .config/tigervnc/xstartup && \
     chmod +x .config/tigervnc/xstartup
+
+# There is no logind session for lxpolkit or a screen locker in this container.
+RUN mkdir -p .config/autostart .config/lxsession/LXDE
+COPY --chown=${USERNAME} docker/config/autostart/disabled.desktop .config/autostart/lxpolkit.desktop
+COPY --chown=${USERNAME} docker/config/autostart/disabled.desktop .config/autostart/light-locker.desktop
+COPY --chown=${USERNAME} docker/config/lxde/autostart .config/lxsession/LXDE/autostart
+
+# LXSession starts its policy agent independently from XDG autostart entries.
+RUN sed -e '/^polkit\/command=/d' -e '/^\[Session\]/a polkit/command=none' \
+    /etc/xdg/lxsession/LXDE/desktop.conf > .config/lxsession/LXDE/desktop.conf

@@ -20,3 +20,7 @@ RUN mkdir -p .config/tigervnc && \
     echo "[ -f \"\$HOME/.Xresources\" ] && xrdb \"\$HOME/.Xresources\"" >> .config/tigervnc/xstartup && \
     echo "startxfce4" >> .config/tigervnc/xstartup && \
     chmod +x .config/tigervnc/xstartup
+
+# This login-session authentication agent cannot register in a VNC container.
+RUN mkdir -p .config/autostart
+COPY --chown=${USERNAME} docker/config/autostart/disabled.desktop .config/autostart/xfce-polkit.desktop

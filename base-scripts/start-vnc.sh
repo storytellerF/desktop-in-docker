@@ -10,6 +10,11 @@ depth=${VNC_DEPTH:-24}
 mkdir -p ~/.config
 TIGERVNC_CONF_DIR="$HOME/.config/tigervnc"
 mkdir -p "$TIGERVNC_CONF_DIR"
+# TigerVNC 1.13 (Ubuntu noble) still reads ~/.vnc; newer releases use XDG.
+# Preserve an existing user-managed legacy directory or link.
+if [ ! -e "$HOME/.vnc" ] && [ ! -L "$HOME/.vnc" ]; then
+  ln -s "$TIGERVNC_CONF_DIR" "$HOME/.vnc"
+fi
 TIGERVNC_CONFIG_FILE="$TIGERVNC_CONF_DIR/config"
 
 if [ -n "$VNC_PASSWD" ]; then
@@ -28,10 +33,25 @@ geometry=${geometry}
 depth=${depth}
 localhost=no
 securitytypes=${VNC_SECURITY_TYPES}
+s=0
 EOF
+
+# Older TigerVNC still reads a separately managed ~/.vnc/config.
+if [ -d "$HOME/.vnc" ] && [ ! -L "$HOME/.vnc" ]; then
+  if [ -f "$HOME/.vnc/config" ]; then
+    sed -i 's/^[[:space:]]*[sS][[:space:]]*=.*/s=0/' "$HOME/.vnc/config"
+  fi
+  if ! grep -q '^s=0$' "$HOME/.vnc/config" 2>/dev/null; then
+    printf '\ns=0\n' >> "$HOME/.vnc/config"
+  fi
+fi
 
 if [ -n "$VNC_PASSWD" ]; then
   echo "rfbauth=$TIGERVNC_CONF_DIR/passwd" >> "$TIGERVNC_CONFIG_FILE"
+fi
+
+if [ -x /usr/local/bin/desktop-in-docker-session ]; then
+  echo "session=desktop-in-docker" >> "$TIGERVNC_CONFIG_FILE"
 fi
 
 # Initialize .Xauthority file to avoid xauth warnings

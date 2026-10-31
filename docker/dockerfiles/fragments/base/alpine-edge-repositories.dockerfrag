@@ -1,0 +1,4 @@
+# Normalize the edge image's shorter CDN alias before any APK bootstrap. The
+# canonical Alpine CDN serves the same signed branch and avoids TLS failures
+# observed with the alias. Custom mirrors and stable repository URLs stay intact.
+RUN sed -i 's|https://cdn.alpinelinux.org/|https://dl-cdn.alpinelinux.org/alpine/|g' /etc/apk/repositories

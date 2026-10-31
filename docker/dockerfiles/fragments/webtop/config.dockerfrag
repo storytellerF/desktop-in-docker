@@ -1,4 +1,8 @@
 COPY base-scripts/start-fcitx.sh /usr/local/bin/start-fcitx.sh
+COPY docker/build/remove-optional-screensavers.py /tmp/remove-optional-screensavers.py
+RUN python3 /tmp/remove-optional-screensavers.py && rm /tmp/remove-optional-screensavers.py
+COPY docker/config/session/disable-x11-idle.py /usr/local/lib/desktop-in-docker/disable-x11-idle.py
+COPY docker/config/autostart/disable-x11-idle.desktop /etc/xdg/autostart/desktop-in-docker-no-idle.desktop
 COPY docker/config/supervisor/webtop.supervisord.conf /opt/desktop-in-docker/supervisord.conf
 COPY docker/config/webtop/custom-services.d/desktop-in-docker-supervisor /custom-services.d/desktop-in-docker-supervisor
 

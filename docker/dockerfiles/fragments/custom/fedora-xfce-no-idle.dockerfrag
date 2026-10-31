@@ -1,0 +1,4 @@
+USER root
+COPY --chmod=755 docker/config/session/start-xfce-unblanked.sh /usr/local/bin/start-xfce-unblanked
+USER ${USERNAME}
+RUN sed -i 's/^startxfce4$/exec dbus-run-session \/usr\/local\/bin\/start-xfce-unblanked/' .config/tigervnc/xstartup

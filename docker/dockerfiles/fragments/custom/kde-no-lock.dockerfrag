@@ -1,0 +1,11 @@
+# Keep Plasma's required locker library; use its native Kiosk policy instead.
+USER root
+COPY docker/config/kde/no-lock.kdeglobals /tmp/no-lock.kdeglobals
+COPY docker/config/kde/no-lock.kscreenlockerrc /tmp/no-lock.kscreenlockerrc
+RUN mkdir -p /etc/xdg && \
+    printf '\n' >> /etc/xdg/kdeglobals && \
+    cat /tmp/no-lock.kdeglobals >> /etc/xdg/kdeglobals && \
+    printf '\n' >> /etc/xdg/kscreenlockerrc && \
+    cat /tmp/no-lock.kscreenlockerrc >> /etc/xdg/kscreenlockerrc && \
+    rm /tmp/no-lock.kdeglobals /tmp/no-lock.kscreenlockerrc
+USER ${USERNAME}

@@ -1,0 +1,8 @@
+# Enlightenment integrates its locker; there is no optional saver package to omit.
+USER root
+COPY docker/config/session/enlightenment-no-lock.py /usr/local/lib/desktop-in-docker/enlightenment-no-lock.py
+COPY --chmod=755 docker/config/session/start-enlightenment-unlocked.sh /usr/local/bin/start-enlightenment-unlocked
+RUN test -f /usr/share/enlightenment/data/config/standard/e.cfg && \
+    python3 /usr/local/lib/desktop-in-docker/enlightenment-no-lock.py /usr/share/enlightenment/data/config
+USER ${USERNAME}
+RUN sed -i 's/exec dbus-run-session enlightenment_start/exec dbus-run-session \/usr\/local\/bin\/start-enlightenment-unlocked/' .config/tigervnc/xstartup
