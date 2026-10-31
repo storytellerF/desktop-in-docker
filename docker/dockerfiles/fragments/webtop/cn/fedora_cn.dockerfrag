@@ -1,7 +1,7 @@
 RUN dnf install -y curl ca-certificates bash && \
     dnf clean all
 
-RUN curl -fsSL https://linuxmirrors.cn/main.sh | bash -s -- \
+RUN bash -o pipefail -c 'curl -fsSL --connect-timeout 10 --max-time 120 --retry 3 https://linuxmirrors.cn/main.sh | bash -s -- \
     --source mirrors.aliyun.com \
     --protocol https \
     --use-intranet-source false \
@@ -9,7 +9,7 @@ RUN curl -fsSL https://linuxmirrors.cn/main.sh | bash -s -- \
     --upgrade-software false \
     --clean-cache false \
     --lang en \
-    --pure-mode
+    --pure-mode'
 
 RUN dnf install -y fcitx fcitx-pinyin && \
     dnf clean all

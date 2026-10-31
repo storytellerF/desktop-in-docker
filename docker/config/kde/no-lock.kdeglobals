@@ -1,0 +1,4 @@
+# Plasma's integrated locker remains after optional screensavers are removed.
+# KAuthorized uses this action for the shortcut, menu and D-Bus Lock request.
+[KDE Action Restrictions]
+action/lock_screen[$i]=false

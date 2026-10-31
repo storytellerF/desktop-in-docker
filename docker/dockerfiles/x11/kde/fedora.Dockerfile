@@ -11,6 +11,9 @@ RUN dnf install -y \
     xdg-utils \
     && dnf clean all
 
+# Fedora's KDE group defaults to Wayland; VNC requires the separate X11 session.
+RUN dnf install -y plasma-workspace-x11 kwin-x11 && dnf clean all
+
 ARG USERNAME=user
 USER $USERNAME
 WORKDIR /home/$USERNAME

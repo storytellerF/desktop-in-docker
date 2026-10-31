@@ -1,0 +1,10 @@
+# Cinnamon's screensaver is a hard dependency on every supported distribution.
+# Do not remove the package or break its dependency database.
+USER root
+RUN sed -i 's/org.cinnamon.ScreenSaver;//g' /usr/share/cinnamon-session/sessions/*.session && \
+    rm -f /usr/share/dbus-1/services/org.cinnamon.ScreenSaver.service \
+          /etc/xdg/autostart/cinnamon-settings-daemon-screensaver-proxy.desktop && \
+    chmod a-x /usr/bin/cinnamon-screensaver
+COPY --chmod=755 docker/config/session/start-cinnamon-unlocked.sh /usr/local/bin/start-cinnamon-unlocked
+USER ${USERNAME}
+RUN sed -i 's/exec dbus-run-session cinnamon-session/exec dbus-run-session \/usr\/local\/bin\/start-cinnamon-unlocked/' .config/tigervnc/xstartup

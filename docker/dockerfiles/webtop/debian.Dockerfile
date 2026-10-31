@@ -3,6 +3,8 @@ FROM ${WEBTOP_BASE_IMAGE}
 
 USER root
 
+COPY docker/config/packages/no-screensavers.pref /etc/apt/preferences.d/no-screensavers
+
 # __INJECT_BEFORE_DEPS__
 RUN apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \

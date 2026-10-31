@@ -1,0 +1,5 @@
+[Desktop Entry]
+Type=Application
+Name=Disable idle blanking
+Exec=python3 /usr/local/lib/desktop-in-docker/disable-x11-idle.py
+NoDisplay=true

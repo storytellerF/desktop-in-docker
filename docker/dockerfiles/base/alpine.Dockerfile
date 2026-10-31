@@ -29,6 +29,10 @@ RUN apk add --no-cache \
     coreutils \
     findutils
 
+# Negative world constraints prevent optional lockers from being pulled back in.
+RUN apk add --no-cache '!mate-screensaver' '!xfce4-screensaver' '!xscreensaver' \
+    '!gnome-screensaver' '!light-locker' '!lxlock' '!i3lock' '!xtrlock'
+
 # Setup locale (Alpine uses musl, limited locale support)
 ENV LANG=en_US.UTF-8
 ENV LC_ALL=en_US.UTF-8
@@ -48,3 +52,10 @@ RUN GROUP_NAME="$(awk -F: -v gid="$USER_GID" '$3 == gid { print $1; exit }' /etc
     fi && \
     echo "$USERNAME ALL=(root) NOPASSWD:ALL" > "/etc/sudoers.d/$USERNAME" && \
     chmod 0440 "/etc/sudoers.d/$USERNAME"
+
+# Register the project's startup file with Alpine's Xsession-based VNC wrapper.
+COPY base-scripts/start-desktop-session.sh /usr/local/bin/desktop-in-docker-session
+COPY base-scripts/session-process-limits.sh /usr/local/bin/session-process-limits.sh
+COPY docker/config/xsessions/desktop-in-docker.desktop /usr/share/xsessions/desktop-in-docker.desktop
+RUN chmod 0755 /usr/local/bin/desktop-in-docker-session && \
+    chmod 0644 /usr/local/bin/session-process-limits.sh

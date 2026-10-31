@@ -5,6 +5,8 @@ FROM ${BASE_FROM_IMAGE}
 
 ARG TIMEZONE=UTC
 
+COPY docker/config/packages/no-screensavers.pref /etc/apt/preferences.d/no-screensavers
+
 # __INJECT_BEFORE_DEPS__
 # Install Dependencies: VNC, Supervisor, noVNC, and other tools
 RUN apt-get update && \

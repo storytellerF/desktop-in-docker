@@ -5,7 +5,8 @@ FROM ${BASE_IMAGE}
 USER root
 
 # Install MATE on Alpine Linux
-RUN apk add --no-cache \
+COPY docker/build/screensaver-packages.py /tmp/screensaver-packages.py
+RUN python3 /tmp/screensaver-packages.py \
     mate-desktop-environment \
     mate-terminal \
     dbus-x11 \

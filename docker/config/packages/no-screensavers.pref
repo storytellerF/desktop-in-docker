@@ -1,0 +1,6 @@
+# Keep desktop recommendations (themes, applications, power management), but
+# do not install optional standalone screen lockers. Cinnamon's locker is a
+# required dependency and is handled separately after runtime verification.
+Package: mate-screensaver xfce4-screensaver gnome-screensaver xscreensaver xscreensaver-* light-locker light-locker-* lxlock i3lock xtrlock
+Pin: version *
+Pin-Priority: -1

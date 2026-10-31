@@ -17,6 +17,7 @@ RUN apt-get update && \
     lxqt-config \
     qterminal \
     pcmanfm-qt \
+    openbox \
     && rm -rf /var/lib/apt/lists/*
 
 ARG USERNAME=ubuntu
@@ -29,3 +30,7 @@ RUN mkdir -p .config/tigervnc && \
     echo "[ -f \"\$HOME/.Xresources\" ] && xrdb \"\$HOME/.Xresources\"" >> .config/tigervnc/xstartup && \
     echo "startlxqt" >> .config/tigervnc/xstartup && \
     chmod +x .config/tigervnc/xstartup
+
+# Select a window manager without a first-login chooser in the remote session.
+RUN mkdir -p .config/lxqt
+COPY --chown=${USERNAME} docker/config/lxqt/session.conf .config/lxqt/session.conf

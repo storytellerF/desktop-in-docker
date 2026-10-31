@@ -1,0 +1,4 @@
+USER root
+COPY --chmod=755 docker/config/session/start-mate-unlocked.sh /usr/local/bin/start-mate-unlocked
+USER ${USERNAME}
+RUN sed -i 's/exec dbus-run-session mate-session/exec dbus-run-session \/usr\/local\/bin\/start-mate-unlocked/' .config/tigervnc/xstartup

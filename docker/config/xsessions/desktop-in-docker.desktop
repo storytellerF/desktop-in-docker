@@ -1,0 +1,4 @@
+[Desktop Entry]
+Name=Desktop in Docker
+Type=Application
+Exec=/usr/local/bin/desktop-in-docker-session

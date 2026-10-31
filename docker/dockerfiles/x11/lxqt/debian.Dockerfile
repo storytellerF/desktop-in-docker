@@ -3,22 +3,6 @@ ARG BASE_IMAGE=desktop-in-docker:debian-trixie-base-latest
 FROM ${BASE_IMAGE}
 
 USER root
-# Prevent installation of power-management and screen-lock packages via APT pinning
-RUN printf 'Package: %s\nPin: release *\nPin-Priority: -1\n\n' \
-    upower \
-    power-profiles-daemon \
-    lxqt-powermanagement \
-    lxqt-screensaver \
-    xscreensaver \
-    xscreensaver-data \
-    gnome-screensaver \
-    mate-screensaver \
-    cinnamon-screensaver \
-    kscreenlocker-common \
-    light-locker \
-    xfce4-screensaver \
-    > /etc/apt/preferences.d/no-desktop-extras
-
 # Install LXQt-specific packages
 RUN apt-get update && \
     DEBIAN_FRONTEND=noninteractive \
@@ -27,6 +11,9 @@ RUN apt-get update && \
     x11-xserver-utils \
     xfonts-base \
     lxqt \
+    openbox \
+    papirus-icon-theme \
+    qt6-svg-plugins \
     && rm -rf /var/lib/apt/lists/*
 
 ARG USERNAME=debian
@@ -40,3 +27,7 @@ RUN mkdir -p .config/tigervnc && \
     echo "[ -f \"\$HOME/.Xresources\" ] && xrdb \"\$HOME/.Xresources\"" >> .config/tigervnc/xstartup && \
     echo "exec dbus-run-session startlxqt" >> .config/tigervnc/xstartup && \
     chmod +x .config/tigervnc/xstartup
+
+# Select a window manager without a first-login chooser in the remote session.
+RUN mkdir -p .config/lxqt
+COPY --chown=${USERNAME} docker/config/lxqt/session.conf .config/lxqt/session.conf

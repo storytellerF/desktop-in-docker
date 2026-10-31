@@ -1,0 +1,5 @@
+# Remove optional packages inherited from a parent image without forcing dependencies.
+USER root
+COPY docker/build/remove-optional-screensavers.py /tmp/remove-optional-screensavers.py
+RUN python3 /tmp/remove-optional-screensavers.py && rm /tmp/remove-optional-screensavers.py
+USER ${USERNAME}

@@ -4,6 +4,16 @@ ARG BASE_FROM_IMAGE=fedora:${SYSTEM_VERSION}
 FROM ${BASE_FROM_IMAGE}
 
 ARG TIMEZONE=UTC
+ARG SYSTEM_VERSION
+
+COPY docker/config/packages/no-screensavers.dnf.conf /tmp/no-screensavers.conf
+RUN sed -i '/^\[main\]/r /tmp/no-screensavers.conf' /etc/dnf/dnf.conf && rm /tmp/no-screensavers.conf
+
+# The existing Fedora 41 default is archived; avoid slow legacy mirror selection.
+RUN if [ "$SYSTEM_VERSION" = "41" ]; then \
+    sed -i -e 's|^metalink=|#metalink=|' \
+        -e 's|^#baseurl=http://download.example/pub/fedora/linux/|baseurl=https://archives.fedoraproject.org/pub/archive/fedora/linux/|' \
+        /etc/yum.repos.d/fedora.repo /etc/yum.repos.d/fedora-updates.repo; fi
 
 # __INJECT_BEFORE_DEPS__
 # Install Dependencies: VNC, Supervisor, noVNC, and other tools
@@ -14,7 +24,7 @@ RUN dnf install -y \
     firefox \
     wget \
     unzip \
-    google-noto-fonts \
+    google-noto-fonts-all \
     glibc-langpack-en \
     sudo \
     pv \

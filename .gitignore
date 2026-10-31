@@ -4,4 +4,6 @@ avd
 data
 download
 tmp
-build
+/build/
+__pycache__/
+*.py[cod]

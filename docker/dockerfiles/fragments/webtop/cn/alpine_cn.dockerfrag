@@ -1,6 +1,6 @@
 RUN apk add --no-cache curl ca-certificates bash
 
-RUN curl -fsSL https://linuxmirrors.cn/main.sh | bash -s -- \
+RUN bash -o pipefail -c 'curl -fsSL --connect-timeout 10 --max-time 120 --retry 3 https://linuxmirrors.cn/main.sh | bash -s -- \
     --source mirrors.aliyun.com \
     --protocol https \
     --use-intranet-source false \
@@ -8,6 +8,6 @@ RUN curl -fsSL https://linuxmirrors.cn/main.sh | bash -s -- \
     --upgrade-software false \
     --clean-cache false \
     --lang en \
-    --pure-mode
+    --pure-mode'
 
 RUN apk add --no-cache fcitx5 fcitx5-chinese-addons
