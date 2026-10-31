@@ -54,7 +54,7 @@ Fedora XFCE 的电源管理器在启动时会恢复十分钟 X11 遮屏定时器
 
 MATE 移除屏保后仍保留原生 Ctrl+Alt+L 绑定和锁屏菜单权限。`start-mate-unlocked.sh` 在会话 D-Bus 中关闭该权限并清空屏保快捷键，覆盖已有用户配置；不修改 Marco 的其他自定义命令。运行回归直接检查绑定、权限及实际按键后的桌面行为。
 
-Alpine + MATE 已在 X11、Webtop 入口统一禁用。X11 组合排查中确认 TigerVNC `frameTick()` 删除画面更新队列项后继续读取已删除项；参见[上游对应代码](https://github.com/TigerVNC/tigervnc/blob/v1.16.2/unix/xserver/hw/vnc/XserverDesktop.cc#L480-L493)。当前通过禁用组合收敛支持范围，未引入 Xvnc 源码编译或二进制修补。参数验证必须在生成 Dockerfile 或调用 Docker 前拒绝构建、发布、启动及组合重启；纯停止继续绕过桌面组合验证，允许清理既有容器。测试同步维护独立的 92 项可用矩阵和禁用组合的 CLI、环境变量、版本及停止回归。
+Alpine + MATE 已在 X11、Webtop 入口统一禁用。X11 组合排查中确认 TigerVNC `frameTick()` 删除画面更新队列项后继续读取已删除项，已提交 [TigerVNC #2191](https://github.com/TigerVNC/tigervnc/issues/2191)；其中附有复现过程、调用栈及[上游对应代码](https://github.com/TigerVNC/tigervnc/blob/v1.16.2/unix/xserver/hw/vnc/XserverDesktop.cc#L480-L493)。当前通过禁用组合收敛支持范围，未引入 Xvnc 源码编译或二进制修补。参数验证必须在生成 Dockerfile 或调用 Docker 前拒绝构建、发布、启动及组合重启；纯停止继续绕过桌面组合验证，允许清理既有容器。测试同步维护独立的 92 项可用矩阵和禁用组合的 CLI、环境变量、版本及停止回归。恢复支持前，须验证上游修复，并同步更新白名单、支持说明和独立测试矩阵。
 
 新增 Webtop 组合前，先确认上游标签存在，再同步 `WEBTOP_DESKTOPS`、测试中独立维护的期望表和 README 支持表。测试期望不应直接导入生产白名单，否则无法发现误开放不支持组合的回归。
 

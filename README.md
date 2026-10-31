@@ -160,7 +160,7 @@ Webtop 支持的系统与桌面组合（受[上游镜像标签](https://docs.lin
 
 当前限制：
 
-- Alpine + MATE 已禁用，覆盖 X11 和 Webtop 的构建、发布和启动入口；显式版本、环境变量和国内镜像源开关均不能绕过。纯停止命令 `-T` 仍可使用。
+- Alpine + MATE 已禁用，相关 Xvnc 崩溃见 [TigerVNC #2191](https://github.com/TigerVNC/tigervnc/issues/2191)。禁用覆盖 X11 和 Webtop 的构建、发布和启动入口；显式版本、环境变量和国内镜像源开关均不能绕过。纯停止命令 `-T` 仍可使用。
 - x11 默认 Fedora 41 的构建使用 Fedora 官方归档仓库；Webtop 的发行版版本由上游镜像标签决定。
 - `--image-variant x11 -s arch` 不支持。Arch 请使用 `--image-variant wayland -d weston` 或 `--image-variant webtop`。
 - `--image-variant wayland` 仅支持 `-s arch -d weston`。
